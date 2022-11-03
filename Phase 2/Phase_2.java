@@ -33,8 +33,6 @@ class OS2{
     int IC;
     boolean toggle;
     //counters
-    int TTL;
-    int TLL;
     int TTC;
     int LLC;
     //interrupts
@@ -48,8 +46,38 @@ class OS2{
     int temp1;   //temporary usage variable
     Random random;
 
+    class PCB{
+        private int TTL;
+        private int TLL;
+        private int jobId;
+
+        public void setJobId(int jobId) {
+            this.jobId = jobId;
+        }
+
+        public void setTLL(int TLL) {
+            this.TLL = TLL;
+        }
+
+        public void setTTL(int TTL) {
+            this.TTL = TTL;
+        }
+
+        public int getJobId() {
+            return jobId;
+        }
+
+        public int getTLL() {
+            return TLL;
+        }
+
+        public int getTTL() {
+            return TTL;
+        }
+    }
     File input;
     FileReader fr;
+
 
     public OS2() throws FileNotFoundException {
         //size allocation
@@ -58,7 +86,6 @@ class OS2{
 
         IR = new char[4];
         R = new char [4];
-        used_frames = new int[30];
         random = new Random();
 
         value_allocator();
@@ -83,13 +110,12 @@ class OS2{
         toggle = false;
         mem_ptr = 0;
         SI = 0;
-        TTL = 0;
         TTC = 0;
-        TLL = 0;
         LLC = 0;
         EM = 0;
         TI = 0;
         PI = 0;
+        used_frames = new int[30];
 
 
 
@@ -100,20 +126,73 @@ class OS2{
     public void MOS(){
         switch (SI){
             case 1:
-                try {
-                    read();
-                } catch (IOException e) {
-                    e.printStackTrace();
+                if(TI == 0){
+                    try {
+                        read();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                else{
+                    terminate(3);
                 }
                 break;
 
             case 2:
-                write();
+                if(TI == 0){
+                    write();
+                }
+                else{
+                    write();
+                    terminate(3);
+                }
                 break;
             case 3:
-                halt();
+                terminate(0);
                 break;
 
+        }
+        switch (PI){
+            case 1:
+                if(TI == 0){
+                    terminate(4);
+                }
+                else{
+                    terminate(3);
+                    terminate(4);
+                }
+                break;
+            case 2:
+                if(TI == 0){
+                    terminate(5);
+                }
+                else{
+                    terminate(3);
+                    terminate(5);
+                }
+                break;
+            case 3:
+                if(TI == 0){
+                    System.out.println("page fault");
+                    if(SI == 1 || (IR[0] == 'S' && IR[1] == 'R')){
+                        System.out.println("Resolving..");
+                        int temp3 = Allocate()*10;
+                        int i = PTR;
+                        while(memory[i][0]!='@'){i++;}
+                        memory[i][0] = '0';
+                        memory[i][3] = (char)(temp3%10 + '0');
+                        temp3/=10;
+                        memory[i][2] = (char)(temp3%10 + '0');
+                        temp3/=10;
+                        memory[i][1] = (char)(temp3%10 + '0');
+                    }
+                    else{
+                        terminate(6);
+                    }
+                }
+                if(TI == 2){
+                    terminate(3);
+                }
         }
     }
 
@@ -125,17 +204,22 @@ class OS2{
         char [] temp;
         if(reader.ready()){
             temp = reader.readLine().toCharArray();
-            for (buffer_ptr = 0; buffer_ptr < temp.length; buffer_ptr++) {
+            for (buffer_ptr = 0; buffer_ptr < temp.length && buffer_ptr<40; buffer_ptr++) {
                 buffer[buffer_ptr] = temp[buffer_ptr];
             }
-            System.out.println(buffer);
+//            System.out.println(buffer);
         }
         if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
             System.out.println("Program Over");
+            terminate(1);
             return;
         }
+        int ra = realAddress((IR[2]-'0') *10);
+        if(PI == 3)
+            MOS();
+        ra = realAddress((IR[2]-'0') *10);
 
-        load_memory_data((IR[2]-'0')*10);
+        load_memory_data(ra);
         buffer_reset();
 
     }
@@ -184,10 +268,28 @@ class OS2{
     }
 
 
-    public void halt(){
+    public void terminate(int EM){
         try{
-            System.out.println("Halt called");
-            Files.write(Paths.get("src/com/company/out.txt"), "\n\n".getBytes(), StandardOpenOption.APPEND);
+            switch (EM){
+                case 0:
+                    Files.write(Paths.get("src/com/company/out.txt"), "\n\n".getBytes(), StandardOpenOption.APPEND);
+                    break;
+                case 1:
+                    Files.write(Paths.get("src/com/company/out.txt"), "\n\nOut of Data".getBytes(), StandardOpenOption.APPEND);
+                    break;
+                case 2:
+                    Files.write(Paths.get("src/com/company/out.txt"), "\n\nLine limit exceeded".getBytes(), StandardOpenOption.APPEND);
+                    break;
+                case 3:
+                    Files.write(Paths.get("src/com/company/out.txt"), "\n\nTime Limit Exceeded".getBytes(), StandardOpenOption.APPEND);
+                case 4:
+                    Files.write(Paths.get("src/com/company/out.txt"), "\n\nOP code error".getBytes(), StandardOpenOption.APPEND);
+                case 5:
+                    Files.write(Paths.get("src/com/company/out.txt"), "\n\nOperand error".getBytes(), StandardOpenOption.APPEND);
+                case 6:
+                    Files.write(Paths.get("src/com/company/out.txt"), "\n\nInvalid page fault".getBytes(), StandardOpenOption.APPEND);
+
+            }
             IC = 100;
             return;
         }
@@ -209,40 +311,66 @@ class OS2{
 
     public void executeUserProgram(){
         //loading IR
-        while (IC<90 && memory[IC][0] != '@') {
+        int ra = realAddress(IC);
+        while (IC<90 && memory[ra][0] != '@') {
+
             for (int i = 0; i < 4; i++) {
-                IR[i] = memory[IC][i];
+                IR[i] = memory[ra][i];
             }
             IC++;
             switch (IR[0]) {
                 case 'L':
                     if(IR[1] == 'R'){
-                        for(int i = 0;i<4;i++){
-                            R[i] = memory[(IR[2]-'0')*10 + (IR[3] -'0')][i];
+                        ra = (IR[2] - '0')*10 + (IR[3] - '0');
+                        if(PI == 3)
+                            MOS();
+                        else{
+                            for(int i = 0;i<4;i++){
+                                R[i] = memory[ra][i];
+                            }
                         }
                     }
+                    TTC++;
                     break;
                 case 'S':
                     if(IR[1] == 'R'){
+                        ra = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
+                        if(PI == 3)
+                            MOS();
+                        ra = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
+
                         for(int i = 0;i<4;i++){
-                            memory[(IR[2]-'0')*10 + (IR[3] -'0')][i] = R[i];
+                            memory[ra][i] = R[i];
                         }
                     }
+                    TTC+=2;
                     break;
                 case 'C':
                     if (IR[1] == 'R') {
-                        char a =IR[2];
-                        char b =IR[3];
-                        comparing(a,b);
+                        ra = (IR[2] - '0')*10 + (IR[3] - '0');
+                        if(PI == 3)
+                            MOS();
+                        else{
+                            comparing(ra);
+
+                        }
                     }
+                    TTC++;
                     break;
 
                 case 'B':
                     if(IR[1] == 'T'){
-                        if(toggle == true){
-                            IC = (IR[2] - '0') *10 + (IR[3] - '0');
+                        ra = (IR[2] - '0')*10 + (IR[3] - '0');
+                        if(PI == 3)
+                            MOS();
+                        else{
+                            if(toggle){
+                                IC = (IR[2] - '0') *10 + (IR[3] - '0');
+                            }
                         }
+
                     }
+                    TTC++;
                     break;
 
                 case 'G':
@@ -250,19 +378,23 @@ class OS2{
                         SI = 1;
                         MOS();
                     }
+                    TTC+=2;
                     break;
                 case 'P':
                     if (IR[1] == 'D') {
                         SI = 2;
                         MOS();
                     }
+                    TTC++;
                     break;
                 case 'H':
                     SI = 3;
                     MOS();
+                    TTC++;
                     break;
                 default:
                     PI = 1;
+                    MOS();
 
 
 
@@ -275,10 +407,10 @@ class OS2{
 
 
 
-    public void comparing( char a,char b) {
+    public void comparing(int c) {
 
 
-        int c = (a-'0') * 10 + (b-'0') ;
+
 
         for (int i = 0; i < 4; i++) {
 //            if (R[i] == '@') {
@@ -323,9 +455,15 @@ class OS2{
                 System.out.println(buffer);
 
                 if (buffer[0] == '$' && buffer[1] == 'A' && buffer[2] == 'M' && buffer[3] == 'J') {
-                    TTL = ((buffer[8] - '0')*1000) + ((buffer[9] - '0')*100) + ((buffer[10] - '0')*10) + ((buffer[11] - '0')); // getting TTL
-                    TLL = ((buffer[12] - '0')*1000) + ((buffer[13] - '0')*100) + ((buffer[14] - '0')*10) + ((buffer[15] - '0')); // Getting TLL
+                    PCB pcb = new PCB();
+                    pcb.setJobId(((buffer[4] - '0')*1000) + ((buffer[5] - '0')*100) + ((buffer[6] - '0')*10) + ((buffer[7] - '0')));
+                    pcb.setTTL(((buffer[8] - '0')*1000) + ((buffer[9] - '0')*100) + ((buffer[10] - '0')*10) + ((buffer[11] - '0')));
+                    pcb.setTLL(((buffer[12] - '0')*1000) + ((buffer[13] - '0')*100) + ((buffer[14] - '0')*10) + ((buffer[15] - '0')));
                     //page allocation
+                    System.out.println("Job id: " + pcb.getJobId());
+                    System.out.println("TTL: " + pcb.getTTL());
+                    System.out.println("TLL: " + pcb.getTLL());
+
                     PTR = Allocate()*10;
 
 
@@ -335,10 +473,10 @@ class OS2{
                 else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
                     //do something
 //                    System.out.println(buffer);
-                    return;
-//                    buffer_reset();
+//                    return;
+                    buffer_reset();
 //                    mem_ptr = (mem_ptr % 10 == 0) ? mem_ptr : ((mem_ptr / 10 + 1) * 10);
-//                    MOSstartExec();
+                    MOSstartExec();
                 }
                 else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
                     System.out.println("Program Over");
@@ -400,7 +538,7 @@ class OS2{
 
     public void load_memory_data(int location){
         mem_ptr = location;
-        if(mem_ptr>=100){
+        if(mem_ptr>=300){
             System.out.println("Memory Overload, quitting...");
             return;
         }
@@ -434,7 +572,13 @@ class OS2{
 
     private int realAddress(int VA){
         int pte = PTR + VA/10;
-        return ((memory[pte][2] - '0')*10 + (memory[pte][3] - '0')) *10 + VA%10; //return real address
+        if(memory[pte][0] == '@') {
+            PI = 3;
+            return -1;
+        }
+
+        int ra = (memory[pte][1]-'0') * 100 + (memory[pte][2] - '0')*10 + (memory[pte][3] - '0') + VA%10; //real address
+        return ra;
     }
 
 
@@ -469,3 +613,5 @@ class OS2{
     }
 
 }
+
+
