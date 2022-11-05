@@ -124,35 +124,8 @@ class OS2{
 
 
     public void MOS(){
-        switch (SI){
-            case 1:
-                if(TI == 0){
-                    try {
-                        read();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-                else{
-                    terminate(3);
-                }
-                break;
-
-            case 2:
-                if(TI == 0){
-                    write();
-                }
-                else{
-                    write();
-                    terminate(3);
-                }
-                break;
-            case 3:
-                terminate(0);
-                break;
-
-        }
-        switch (PI){
+        if(PI != 0)
+            switch (PI){
             case 1:
                 if(TI == 0){
                     terminate(4);
@@ -193,6 +166,38 @@ class OS2{
                 if(TI == 2){
                     terminate(3);
                 }
+
+
+
+        }
+        else
+            switch (SI){
+            case 1:
+                if(TI == 0){
+                    try {
+                        read();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                else{
+                    terminate(3);
+                }
+                break;
+
+            case 2:
+                if(TI == 0){
+                    write();
+                }
+                else{
+                    write();
+                    terminate(3);
+                }
+                break;
+            case 3:
+                terminate(0);
+                break;
+
         }
     }
 
@@ -207,7 +212,7 @@ class OS2{
             for (buffer_ptr = 0; buffer_ptr < temp.length && buffer_ptr<40; buffer_ptr++) {
                 buffer[buffer_ptr] = temp[buffer_ptr];
             }
-//            System.out.println(buffer);
+            System.out.println(buffer);
         }
         if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
             System.out.println("Program Over");
@@ -215,8 +220,10 @@ class OS2{
             return;
         }
         int ra = realAddress((IR[2]-'0') *10);
-        if(PI == 3)
+        if(PI == 3){
             MOS();
+            PI = 0;
+        }
         ra = realAddress((IR[2]-'0') *10);
 
         load_memory_data(ra);
@@ -231,33 +238,41 @@ class OS2{
         int buffer_ptr;
         char [] temp;
         try{
-            IR[3] = '0';
-            int memory_ptr = (IR[2]-'0')*10;
-            int buffer_ptr4 = 0;
-            int limit = memory_ptr+10;
+            int memory_ptr = realAddress((IR[2]-'0')*10);
+            if(memory_ptr == -1){
+                PI = 2;
+                MOS();
+            }
+            else{
+                int buffer_ptr4 = 0;
+                int limit = memory_ptr+10;
 //            FileWriter myWriter = new FileWriter("src/com/company/out.txt");
 
-            for(memory_ptr = (IR[2]-'0')*10;memory_ptr<limit && memory[memory_ptr][0] != '@' ;memory_ptr++){
-                for(int i = 0;i<4;i++){
-                    if(memory[memory_ptr][i] == '@')
-                        break;
-                    buffer[buffer_ptr4] = memory[memory_ptr][i];
+                for(memory_ptr = realAddress((IR[2]-'0')*10);memory_ptr<limit;memory_ptr++){
+                    for(int i = 0;i<4;i++){
+                        if(memory[memory_ptr][i] == '@')
+                            continue;
+                        buffer[buffer_ptr4] = memory[memory_ptr][i];
+                        buffer_ptr4++;
+                    }
+                }
+                StringBuffer sb = new StringBuffer();
+                buffer_ptr4 = 0;
+//                System.out.println(buffer);
+                while(buffer_ptr4 < 40 && buffer[buffer_ptr4]!='@'){
+                    sb.append(buffer[buffer_ptr4]);
                     buffer_ptr4++;
                 }
-            }
-            StringBuffer sb = new StringBuffer();
-            buffer_ptr4 = 0;
-            while(buffer_ptr4 < 40 && buffer[buffer_ptr4]!='@'){
-                sb.append(buffer[buffer_ptr4]);
-                buffer_ptr4++;
-            }
-            sb.append('\n');
-            Files.write(Paths.get("src/com/company/out.txt"), String.valueOf(sb).getBytes(), StandardOpenOption.APPEND);
+                sb.append('\n');
+                System.out.println("sb is"+sb);
+                Files.write(Paths.get("src/com/company/out.txt"), String.valueOf(sb).getBytes(), StandardOpenOption.APPEND);
 
 //            myWriter.append(String.valueOf(sb));
 //            myWriter.flush();
 //            myWriter.close();
-            buffer_reset();
+                buffer_reset();
+
+            }
         }
         catch(IOException e){
             System.out.println("Exception occured at write()");
@@ -313,20 +328,22 @@ class OS2{
         //loading IR
         int ra = realAddress(IC);
         while (IC<90 && memory[ra][0] != '@') {
-
+            int ra2;
             for (int i = 0; i < 4; i++) {
                 IR[i] = memory[ra][i];
             }
             IC++;
+            ra = realAddress(IC);
+
             switch (IR[0]) {
                 case 'L':
                     if(IR[1] == 'R'){
-                        ra = (IR[2] - '0')*10 + (IR[3] - '0');
+                        ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
                         if(PI == 3)
                             MOS();
                         else{
                             for(int i = 0;i<4;i++){
-                                R[i] = memory[ra][i];
+                                R[i] = memory[ra2][i];
                             }
                         }
                     }
@@ -334,24 +351,24 @@ class OS2{
                     break;
                 case 'S':
                     if(IR[1] == 'R'){
-                        ra = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
+                        ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
                         if(PI == 3)
                             MOS();
-                        ra = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
+                        ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
 
                         for(int i = 0;i<4;i++){
-                            memory[ra][i] = R[i];
+                            memory[ra2][i] = R[i];
                         }
                     }
                     TTC+=2;
                     break;
                 case 'C':
                     if (IR[1] == 'R') {
-                        ra = (IR[2] - '0')*10 + (IR[3] - '0');
+                        ra2 = (IR[2] - '0')*10 + (IR[3] - '0');
                         if(PI == 3)
                             MOS();
                         else{
-                            comparing(ra);
+                            comparing(ra2);
 
                         }
                     }
@@ -360,7 +377,7 @@ class OS2{
 
                 case 'B':
                     if(IR[1] == 'T'){
-                        ra = (IR[2] - '0')*10 + (IR[3] - '0');
+                        ra2 = (IR[2] - '0')*10 + (IR[3] - '0');
                         if(PI == 3)
                             MOS();
                         else{
@@ -377,6 +394,7 @@ class OS2{
                     if (IR[1] == 'D') {
                         SI = 1;
                         MOS();
+                        SI = 0;
                     }
                     TTC+=2;
                     break;
@@ -384,12 +402,14 @@ class OS2{
                     if (IR[1] == 'D') {
                         SI = 2;
                         MOS();
+                        SI = 0;
                     }
                     TTC++;
                     break;
                 case 'H':
                     SI = 3;
                     MOS();
+                    SI = 0;
                     TTC++;
                     break;
                 default:
@@ -402,6 +422,7 @@ class OS2{
 
 
             }
+
         }
     }
 
@@ -472,7 +493,6 @@ class OS2{
                 }
                 else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
                     //do something
-//                    System.out.println(buffer);
 //                    return;
                     buffer_reset();
 //                    mem_ptr = (mem_ptr % 10 == 0) ? mem_ptr : ((mem_ptr / 10 + 1) * 10);
