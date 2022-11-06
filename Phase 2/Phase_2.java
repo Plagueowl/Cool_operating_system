@@ -150,17 +150,7 @@ class OS2{
                         if (SI == 1 || (IR[0] == 'S' && IR[1] == 'R')) {
                             System.out.println("Resolving..");
                             Allocate();
-//                            int temp3 = Allocate() * 10;
-//                            int i = getPTE((IR[2]-'0') *10);
-//                            System.out.println("PTE is " + i);
-//
-//                            memory[i][0] = '0';
-//                            memory[i][3] = (char) (temp3 % 10 + '0');
-//                            temp3 /= 10;
-//                            memory[i][2] = (char) (temp3 % 10 + '0');
-//                            temp3 /= 10;
-//                            memory[i][1] = (char) (temp3 % 10 + '0');
-//                            printer();
+
                         } else {
                             terminate(6);
                         }
@@ -256,7 +246,7 @@ class OS2{
                 else{
                     int buffer_ptr4 = 0;
                     int limit = memory_ptr+10;
-//            FileWriter myWriter = new FileWriter("src/com/company/out.txt");
+
 
                     for(memory_ptr = realAddress((IR[2]-'0')*10);memory_ptr<limit;memory_ptr++){
                         for(int i = 0;i<4;i++){
@@ -276,9 +266,7 @@ class OS2{
                     sb.append('\n');
                     Files.write(Paths.get("out.txt"), String.valueOf(sb).getBytes(), StandardOpenOption.APPEND);
 
-//            myWriter.append(String.valueOf(sb));
-//            myWriter.flush();
-//            myWriter.close();
+
                     buffer_reset();
 
                 }
@@ -406,7 +394,6 @@ class OS2{
 
                 case 'B':
                     if(IR[1] == 'T'){
-//                        ra2 = (IR[2] - '0')*10 + (IR[3] - '0');
                         if(PI == 3 || PI ==2)
                             MOS();
                         else{
@@ -541,13 +528,10 @@ class OS2{
                     continue;
                 }
                 else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
-                    //do something
-//                    return;
                     buffer_reset();
-//                    mem_ptr = (mem_ptr % 10 == 0) ? mem_ptr : ((mem_ptr / 10 + 1) * 10);
                     MOSstartExec();
                 }
-                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
+                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') { 
                     System.out.println("Program Over");
                     printer();
                     value_allocator();
