@@ -268,7 +268,7 @@ class OS{
     private static BufferedReader reader;
     static {
         try {
-            file = new java.io.File("test.txt");
+            file = new java.io.File("input.txt");
             reader = new BufferedReader(new FileReader(String.valueOf(file)));
         } catch (FileNotFoundException e) {
             e.printStackTrace();
