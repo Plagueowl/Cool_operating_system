@@ -2,13 +2,13 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Scanner;
 import java.io.FileWriter;
 
 public class Phase_1 {
 
     public static void main(String[] args) throws FileNotFoundException {
         OS object = new OS();
-//        object.printer();
         object.load();
         object.printer();
 
@@ -99,7 +99,7 @@ class OS{
             }
             System.out.println(buffer);
         }
-        if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
+        if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {
             System.out.println("Program Over");
             return;
         }
@@ -120,12 +120,11 @@ class OS{
             int memory_ptr = (IR[2]-'0')*10;
             int buffer_ptr4 = 0;
             int limit = memory_ptr+10;
-//            FileWriter myWriter = new FileWriter("src/com/company/out.txt");
 
-            for(memory_ptr = (IR[2]-'0')*10;memory_ptr<limit && memory[memory_ptr][0] != '@' ;memory_ptr++){
+            for(memory_ptr = (IR[2]-'0')*10;memory_ptr<limit;memory_ptr++){
                 for(int i = 0;i<4;i++){
                     if(memory[memory_ptr][i] == '@')
-                        break;
+                        continue;
                     buffer[buffer_ptr4] = memory[memory_ptr][i];
                     buffer_ptr4++;
                 }
@@ -139,9 +138,7 @@ class OS{
             sb.append('\n');
             Files.write(Paths.get("out.txt"), String.valueOf(sb).getBytes(), StandardOpenOption.APPEND);
 
-//            myWriter.append(String.valueOf(sb));
-//            myWriter.flush();
-//            myWriter.close();
+
             buffer_reset();
         }
         catch(IOException e){
@@ -248,10 +245,7 @@ class OS{
         int c = (a-'0') * 10 + (b-'0') ;
 
         for (int i = 0; i < 4; i++) {
-//            if (R[i] == '@') {
-//                toggle = false;
-//                return;
-//            }
+
             if (R[i] == memory[c][i]) {
                 continue;
             } else {
@@ -294,28 +288,21 @@ class OS{
                     continue;
                 }
                 else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
-                    //do something
-//                    System.out.println(buffer);
                     buffer_reset();
                     mem_ptr = (mem_ptr % 10 == 0) ? mem_ptr : ((mem_ptr / 10 + 1) * 10);
                     MOSstartExec();
                 }
-                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
+                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {
                     System.out.println("Program Over");
                     printer();
                     value_allocator();
                 }
                 else{
-                    for (buffer_ptr = 0; buffer_ptr < temp.length; buffer_ptr++) {
-                        buffer[buffer_ptr] = temp[buffer_ptr];
-                    }
-//                    System.out.println(buffer);
-
                     load_memory_instructions();
                     buffer_reset();
 
                 }
-                if (buffer_ptr >= 40) {
+                if (buffer_ptr > 40) {
                     System.out.println("Buffer Overload, quitting...");
                     return;
                 }
@@ -341,7 +328,7 @@ class OS{
             }
             mem_ptr++;
         }
-//        printer();
+
     }
 
 
