@@ -1,2 +1,2 @@
 # Cool_operating_system
- an operating system purely made on java
+ A virtual Machine purely made on java
