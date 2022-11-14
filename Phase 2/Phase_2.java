@@ -150,7 +150,7 @@ class OS2{
                         if (SI == 1 || (IR[0] == 'S' && IR[1] == 'R')) {
                             System.out.println("Resolving..");
                             Allocate();
-
+                            TTC++;
                         } else {
                             terminate(6);
                         }
@@ -210,15 +210,18 @@ class OS2{
             }
             System.out.println(buffer);
         }
-        if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
+        if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {
             System.out.println("Program Over");
             terminate(1);
             return;
         }
         int ra = realAddress((IR[2]-'0') *10);
+        if(PI == 2){
+            MOS();
+            return;
+        }
         if(PI == 3){
             MOS();
-            PI = 0;
         }
         ra = realAddress((IR[2]-'0') *10);
 
@@ -239,14 +242,12 @@ class OS2{
         else{
             try{
                 int memory_ptr = realAddress((IR[2]-'0')*10);
-                if(memory_ptr == -1){
-                    PI = 3;
+                if(PI == 2 || PI == 3){
                     MOS();
                 }
                 else{
                     int buffer_ptr4 = 0;
                     int limit = memory_ptr+10;
-
 
                     for(memory_ptr = realAddress((IR[2]-'0')*10);memory_ptr<limit;memory_ptr++){
                         for(int i = 0;i<4;i++){
@@ -283,28 +284,32 @@ class OS2{
 
 
     public void terminate(int EM){
+        String jobDetails = "\n\nJobID: " + pcb.getJobId() + "\tTTL: " + pcb.getTTL() + "\tTLL: " + pcb.getTLL() + "\nTTC: " + TTC + "\tLLC: "+ LLC+"\n";
+        String interrupts = "\nSI: "+SI+"\tPI: "+PI+"\tTI: "+TI+"\n";
+        String cpuDetails = "\nIC: "+IC+"\nIR: "+IR[0]+IR[1]+IR[2]+IR[3] + "\nR: "+R[0]+R[1]+R[2]+R[3] + "\nToggle: "+toggle+"\n";
         try{
             switch (EM){
+
                 case 0:
-                    Files.write(Paths.get("out.txt"), "\n\n".getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("out.txt"), (jobDetails+interrupts+cpuDetails+"\nTerminated Sucessfully\n\n").getBytes(), StandardOpenOption.APPEND);
                     break;
                 case 1:
-                    Files.write(Paths.get("out.txt"), "\n\nOut of Data\n".getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("out.txt"), (jobDetails+interrupts+cpuDetails+"\nOut of Data\n\n").getBytes(), StandardOpenOption.APPEND);
                     break;
                 case 2:
-                    Files.write(Paths.get("out.txt"), "\n\nLine limit exceeded\n".getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("out.txt"), (jobDetails+interrupts+cpuDetails+"\nLine limit exceeded\n\n").getBytes(), StandardOpenOption.APPEND);
                     break;
                 case 3:
-                    Files.write(Paths.get("out.txt"), "\n\nTime Limit Exceeded\n".getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("out.txt"), (jobDetails+interrupts+cpuDetails+"\nTime Limit Exceeded\n\n").getBytes(), StandardOpenOption.APPEND);
                     break;
                 case 4:
-                    Files.write(Paths.get("out.txt"), "\n\nOP code error\n".getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("out.txt"), (jobDetails+interrupts+cpuDetails+ "\nOP code error\n\n").getBytes(), StandardOpenOption.APPEND);
                     break;
                 case 5:
-                    Files.write(Paths.get("out.txt"), "\n\nOperand error\n".getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("out.txt"), (jobDetails+interrupts+cpuDetails+ "\nOperand error\n\n").getBytes(), StandardOpenOption.APPEND);
                     break;
                 case 6:
-                    Files.write(Paths.get("out.txt"), "\n\nInvalid page fault\n".getBytes(), StandardOpenOption.APPEND);
+                    Files.write(Paths.get("out.txt"), (jobDetails+interrupts+cpuDetails+"\nInvalid page fault\n\n").getBytes(), StandardOpenOption.APPEND);
                     break;
 
             }
@@ -330,7 +335,7 @@ class OS2{
     public void executeUserProgram(){
         //loading IR
         int ra = realAddress(IC);
-        while (IC<90 && memory[ra][0] != '@') {
+        while (IC<99 && memory[ra][0] != '@') {
             System.out.println("IC is " + IC);
             int ra2;
             for (int i = 0; i < 4; i++) {
@@ -366,7 +371,7 @@ class OS2{
                         for(int i = 0;i<4;i++){
                             memory[ra2][i] = R[i];
                         }
-                        TTC+=2;
+                        TTC++;
 
                     }
                     else{
@@ -394,6 +399,7 @@ class OS2{
 
                 case 'B':
                     if(IR[1] == 'T'){
+//                        ra2 = (IR[2] - '0')*10 + (IR[3] - '0');
                         if(PI == 3 || PI ==2)
                             MOS();
                         else{
@@ -414,8 +420,7 @@ class OS2{
                     if (IR[1] == 'D') {
                         SI = 1;
                         MOS();
-                        SI = 0;
-                        TTC+=2;
+                        TTC++;
 
                     }
                     else{
@@ -427,7 +432,6 @@ class OS2{
                     if (IR[1] == 'D') {
                         SI = 2;
                         MOS();
-                        SI = 0;
                         TTC++;
 
                     }
@@ -439,7 +443,6 @@ class OS2{
                 case 'H':
                     SI = 3;
                     MOS();
-                    SI = 0;
                     TTC++;
                     break;
                 default:
@@ -456,6 +459,7 @@ class OS2{
             for (int i = 0; i < 4; i++) {
                 IR[i] = '@';
             }
+
             ra = realAddress(IC);
             if(TTC>pcb.getTTL()){
                 TI = 2;
@@ -528,10 +532,13 @@ class OS2{
                     continue;
                 }
                 else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
+                    //do something
+//                    return;
                     buffer_reset();
+//                    mem_ptr = (mem_ptr % 10 == 0) ? mem_ptr : ((mem_ptr / 10 + 1) * 10);
                     MOSstartExec();
                 }
-                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') { 
+                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
                     System.out.println("Program Over");
                     printer();
                     value_allocator();
@@ -627,6 +634,18 @@ class OS2{
 
 
     private int realAddress(int VA){
+        if(IR[2]!='@'){
+            if((IR[2]-'0'>9) || (IR[2]-'0'<0) || (IR[3]-'0'>9) || (IR[3]-'0'<0)){
+                PI = 2;
+                return -1;
+            }
+        }
+
+        if(VA>99 || VA<0){
+            PI = 2;
+            return -1;
+        }
+
         int pte = getPTE(VA);
         if(memory[pte][0] == '@') {
             PI = 3;
@@ -635,11 +654,7 @@ class OS2{
         }
         int ra = (memory[pte][1]-'0') * 100 + (memory[pte][2] - '0')*10 + (memory[pte][3] - '0') + VA%10; //real address
         //operand errors
-        if((IR[0] == 'L' && memory[ra][0] == '@') || (IR[0] == 'S' && memory[ra][0] != '@') || (IR[0] == 'C' && memory[ra][0] == '@') || (IR[0] == 'B' && memory[ra][0] == '@')){
-            PI = 2;
-            System.out.println("PI = 2");
-            return -1;
-        }
+
         return ra;
     }
     private int getPTE(int VA){

@@ -18,7 +18,7 @@ b
 IS VOWEL
 NOT VOWEL
 $END0004
-$AMJ000600300007
+$AMJ000600310007
 GD20LR20SR60PD60SR30SR31PD30SR40SR41SR42
 PD40SR50SR51SR52SR53PD50PD40PD30PD60H
 $DTA
@@ -33,48 +33,48 @@ $DTA
 Hello world
 Hehe boi
 Lunaboi
-$END007
+$END0007
 
 Line limit error (THis program needs 3 lines of output)
-$AMJ000700140002
+$AMJ000800140002
 GD10GD20GD30LR10SR17PD10PD20PD30H
 $DTA
 Hello world
 Hehe boi
 Lunaboi
-$END007
+$END0008
 
 Invalid Page fault  (Trying to print a block that doesn't exist)
-$AMJ000700140003
+$AMJ000900140003
 GD10GD20GD30LR10SR17PD40PD20PD30H
 $DTA
 Hello world
 Hehe boi
 Lunaboi
-$END007
+$END0009
 
-Operand error  (Trying to load register from an empty location)
-$AMJ000700140003
-GD10GD20GD30LR16SR17PD40PD20PD30H
+Operand error  (LR1O (one O) instead of LR10)
+$AMJ001000140003
+GD10GD20GD30LR1OSR17PD10PD20PD30H
 $DTA
 Hello world
 Hehe boi
 Lunaboi
-$END007
+$END0010
 
 Opcode error(Spelling mistakes)
-$AMJ000700140003
+$AMJ001100140003
 GD10GD20GD30LD10SR17PD40PD20PD30H
 $DTA
 Hello world
 Hehe boi
 Lunaboi
-$END007
+$END0011
 
 Exhausted data (Trying to access more data when no data available)
-$AMJ000700140003
+$AMJ001200140003
 GD10GD20GD30LR10SR17PD40PD20PD30H
 $DTA
 Hello world
 Hehe boi
-$END007
+$END0012

@@ -1,17 +1,141 @@
-VIIT
+VIIT010002100020
 VIT
 NOT SAME
 
 
+JobID: 2	TTL: 16	TLL: 3
+TTC: 14	LLC: 3
+
+SI: 3	PI: 0	TI: 0
+
+IC: 11
+IR: H@@@
+R: VIIT
+Toggle: false
+
+Terminated Sucessfully
+
 NOT VOWEL
 
 
-*
-**
-***
-****
-***
-**
-*
+JobID: 4	TTL: 24	TLL: 1
+TTC: 20	LLC: 1
 
+SI: 3	PI: 0	TI: 0
+
+IC: 17
+IR: H@@@
+R: b@@@
+Toggle: false
+
+Terminated Sucessfully
+
+* 
+* * 
+* * * 
+* * * * 
+* * * 
+* * 
+* 
+
+
+JobID: 6	TTL: 31	TLL: 7
+TTC: 24	LLC: 7
+
+SI: 3	PI: 0	TI: 0
+
+IC: 20
+IR: H@@@
+R: * @@
+Toggle: false
+
+Terminated Sucessfully
+
+Hello worldHell
+Hehe boi
+
+
+JobID: 7	TTL: 9	TLL: 3
+TTC: 10	LLC: 2
+
+SI: 0	PI: 0	TI: 2
+
+IC: 7
+IR: @@@@
+R: Hell
+Toggle: false
+
+Time Limit Exceeded
+
+Hello worldHell
+Hehe boi
+
+
+JobID: 8	TTL: 14	TLL: 2
+TTC: 10	LLC: 3
+
+SI: 2	PI: 0	TI: 0
+
+IC: 8
+IR: PD30
+R: Hell
+Toggle: false
+
+Line limit exceeded
+
+
+
+JobID: 9	TTL: 14	TLL: 3
+TTC: 8	LLC: 1
+
+SI: 2	PI: 3	TI: 0
+
+IC: 6
+IR: PD40
+R: Hell
+Toggle: false
+
+Invalid page fault
+
+
+
+JobID: 10	TTL: 14	TLL: 3
+TTC: 6	LLC: 0
+
+SI: 0	PI: 2	TI: 0
+
+IC: 4
+IR: LR1O
+R: @@@@
+Toggle: false
+
+Operand error
+
+
+
+JobID: 10	TTL: 14	TLL: 3
+TTC: 6	LLC: 0
+
+SI: 0	PI: 1	TI: 0
+
+IC: 4
+IR: LD10
+R: @@@@
+Toggle: false
+
+OP code error
+
+
+
+JobID: 12	TTL: 14	TLL: 3
+TTC: 4	LLC: 0
+
+SI: 1	PI: 0	TI: 0
+
+IC: 3
+IR: GD30
+R: @@@@
+Toggle: false
+
+Out of Data
 
