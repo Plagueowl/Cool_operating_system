@@ -4,6 +4,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.sql.SQLOutput;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
@@ -31,7 +32,29 @@ public class Phase_3 {
         obj.IR1();
         obj.IR1();
         obj.IR1();
+        obj.IR3();
+        obj.IR3();
+        obj.IR3();
+        obj.IR3();
+        obj.IR3();
+        obj.IR3();
+        obj.IR3();
         obj.IR1();
+        obj.IR3();obj.IR1();
+        obj.IR3();obj.IR1();
+        obj.IR3();obj.IR1();
+        obj.IR3();obj.IR1();
+        obj.IR3();
+
+
+        System.out.println("\nMain memory");
+        for(int i = 0; i< 300;i++){
+            System.out.print(i+" : ");
+            for(int j = 0;j<4;j++){
+                System.out.print(obj.drum[i][j]);
+            }
+            System.out.println();
+        }
 
 
 
@@ -46,6 +69,7 @@ class OS3{
     char [][] memory;       //RAM
     char [][] drum;     //secondary storage
     int mem_ptr;
+    int emp_drum_ptr; //points at the next empty drum block;
     //CPU
     char [] IR;
     char [] R;
@@ -77,7 +101,10 @@ class OS3{
     int temp1;   //temporary usage variable
     Random random;
     PCB pcb; // pcb data structure;
-    char F; //flow status for channel 1;
+    char F; //flow status for channel 3;
+    char[] task; // for channel 3;
+
+
 
     class PCB{
         private int TTL;
@@ -145,6 +172,7 @@ class OS3{
         CH = new boolean[4];
         CH_TOT = new int[4];
         CHT = new int[4];
+        task = new char[2];
 
         value_allocator();
 
@@ -173,11 +201,13 @@ class OS3{
         IC = 0;
         toggle = false;
         mem_ptr = 0;
+        emp_drum_ptr = 0;
         SI = 0;
         EM = 0;
         TI = 0;
         PI = 0;
         IRi = 0;
+
         for(int i = 0;i<10;i++){
             ebq.add(i);
         }
@@ -304,48 +334,16 @@ class OS3{
         try {
             if(reader.ready()){
                 char[] temp;
-                temp = reader.readLine().toCharArray();
                 int index = ebq.poll();
+                temp = reader.readLine().toCharArray();
                 for(int i = 0;i<temp.length && i<40;i++){
                     supervisoryStorage[index][i] = temp[i];
                 }
                 ifb.add(index);
+                System.out.println("Ifb: - "+ifb);
                 CH[1] = true;
 
-                //examination of ifb
-                if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'A' && supervisoryStorage[index][2] == 'M' && supervisoryStorage[index][3] == 'J'){
-                    System.out.println("AMJ detected, initializing PCB");
-                    buffer_reset(index);
-                    ebq.add(ifb.poll());
-                    F = 'P';
-                }
-                else if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'D' && supervisoryStorage[index][2] == 'T' && supervisoryStorage[index][3] == 'A'){
-                    System.out.println("DTA detected, changing buffer status...");
-                    buffer_reset(index);
-                    ebq.add(ifb.poll());
-                    F = 'D';
-                }
-                else if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'E' && supervisoryStorage[index][2] == 'N' && supervisoryStorage[index][3] == 'D'){
-                    buffer_reset(index);
-                    ebq.add(ifb.poll());
-                    System.out.println("END detected, terminating....");
-                }
-                else{
-                    if(F == 'P'){
-                        System.out.println("Program card incoming");
-                        System.out.println(supervisoryStorage[index]);
-                        buffer_reset(index);
-                        ebq.add(ifb.poll());
 
-                    }
-                    else if(F == 'D'){
-                        System.out.println("Data card incoming");
-                        System.out.println(supervisoryStorage[index]);
-                        buffer_reset(index);
-                        ebq.add(ifb.poll());
-
-                    }
-                }
 
             }
 
@@ -355,7 +353,109 @@ class OS3{
         }
     }
     public void IR2(){}
-    public void IR3(){}
+
+    public void IR3(){
+        //examination of ifb
+        switch (task[0]){
+            case 'I':
+                if(!ifb.isEmpty()){
+                    int index = ifb.poll();
+                    if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'A' && supervisoryStorage[index][2] == 'M' && supervisoryStorage[index][3] == 'J'){
+                        System.out.println("AMJ detected, initializing PCB");
+                        pcb = new PCB();
+                        pcb.setJobId(((buffer[4] - '0')*1000) + ((buffer[5] - '0')*100) + ((buffer[6] - '0')*10) + ((buffer[7] - '0')));
+                        pcb.setTTL(((buffer[8] - '0')*1000) + ((buffer[9] - '0')*100) + ((buffer[10] - '0')*10) + ((buffer[11] - '0')));
+                        pcb.setTLL(((buffer[12] - '0')*1000) + ((buffer[13] - '0')*100) + ((buffer[14] - '0')*10) + ((buffer[15] - '0')));
+                        pcb.Ptrack = emp_drum_ptr;
+                        pcb.Pcards = 0;
+                        //page allocation
+                        System.out.println("Job id: " + pcb.getJobId());
+                        System.out.println("TTL: " + pcb.getTTL());
+                        System.out.println("TLL: " + pcb.getTLL());
+                        System.out.println("Ptrack: " + pcb.Ptrack);
+                        System.out.println("Dtrack: " + pcb.Dtrack);
+
+                        buffer_reset(index);
+                        ebq.add(index);
+                        System.out.println("ebq " + ebq);
+
+                        F = 'P';
+                    }
+                    else if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'D' && supervisoryStorage[index][2] == 'T' && supervisoryStorage[index][3] == 'A'){
+                        System.out.println("DTA detected, changing buffer status...");
+                        pcb.Dtrack = emp_drum_ptr;
+                        pcb.Dcards = 0;
+                        buffer_reset(index);
+                        ebq.add(index);
+                        F = 'D';
+                    }
+                    else if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'E' && supervisoryStorage[index][2] == 'N' && supervisoryStorage[index][3] == 'D'){
+                        buffer_reset(index);
+                        ebq.add(ifb.poll());
+                        System.out.println("END detected, putting job in ready queue");
+                        RQ.add(pcb);
+                        System.out.println("RQ is:" + RQ.peek().jobId);
+
+                    }
+                    else{
+                        if(F == 'P'){
+                            System.out.println("Program card incoming");
+                            System.out.println(supervisoryStorage[index]);
+                            load_memory_instructions_drum(supervisoryStorage[index],pcb.Ptrack + 10*pcb.Pcards);
+                            pcb.Pcards++;
+                            emp_drum_ptr+=10;
+                            buffer_reset(index);
+                            ebq.add(index);
+
+                        }
+                        else if(F == 'D'){
+                            System.out.println("Data card incoming");
+                            System.out.println(supervisoryStorage[index]);
+                            load_memory_data_Drum(supervisoryStorage[index],pcb.Dtrack + 10*pcb.Dcards);
+                            pcb.Dcards++;
+                            emp_drum_ptr+=10;
+                            buffer_reset(index);
+                            ebq.add(index);
+
+                        }
+                    }
+                }
+                break;
+            case 'O':
+                pcb.Otrack = emp_drum_ptr;
+
+                break;
+
+
+        }
+        if(!TQ.isEmpty()){
+            pcb = TQ.poll();
+            int index = ebq.poll();
+            int track = pcb.Otrack+pcb.Olines;
+            task[0] = 'O';task[1] = 'S';
+            CH[3] = true;
+        }
+        else if(!ifb.isEmpty()){
+            int index = ifb.poll();
+            task[0] = 'I';task[1] = 'S';
+        }
+        else if(!LQ.isEmpty()){
+            task[0] = 'L';task[1] = 'D';
+        }
+
+
+        else if(!IoQ.isEmpty()){
+            if(SI == 1){
+                task[0] = 'G'; task[1] = 'D';
+            }
+            if(SI == 2){
+                task[0] = 'P'; task[1] = 'D';
+            }
+        }
+
+
+
+    }
 
 
     public void read() throws IOException {
@@ -738,7 +838,42 @@ class OS3{
         }
 //        printer();
     }
+    public void load_memory_instructions_drum(char[] buffer, int address){
+        int buffer_ptr2 = 0;
+        int limit = address+10;
+        while(buffer_ptr2<40 && buffer[buffer_ptr2]!='@' && address<limit){
+            for(int i = 0;i<4;i++){
+                if(buffer[buffer_ptr2] == '@')
+                    break;
+                drum[address][i] = buffer[buffer_ptr2];
+                if(buffer[buffer_ptr2]=='H'){
+                    buffer_ptr2++;
+                    break;
+                }
+                buffer_ptr2++;
+            }
+            address++;
+        }
+//        printer();
+    }
+    public void load_memory_data_Drum(char[] buffer, int location){
+        mem_ptr = location;
+        if(mem_ptr>=500){
+            System.out.println("Memory Overload, quitting...");
+            return;
+        }
+        int buffer_ptr1 = 0;
+        while(buffer_ptr1<40 && buffer[buffer_ptr1]!='@'){
+            for(int i = 0;i<4;i++){
+                if(buffer[buffer_ptr1] == '@')
+                    break;
+                drum[mem_ptr][i] = buffer[buffer_ptr1];
+                buffer_ptr1++;
+            }
+            mem_ptr++;
+        }
 
+    }
 
     public void load_memory_data(int location){
         mem_ptr = location;
@@ -761,8 +896,10 @@ class OS3{
 
 
     public void buffer_reset(){
-        for(int i = 0;i< 40;i++){
-            buffer[i] = '@';
+        for(int i = 0;i< 10;i++){
+            for(int j = 0;j<40;j++){
+                supervisoryStorage[i][j] = '@';
+            }
         }
     }
     public void buffer_reset(int buff_no){
