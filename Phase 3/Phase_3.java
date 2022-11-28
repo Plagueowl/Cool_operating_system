@@ -23,11 +23,20 @@ public class Phase_3 {
         obj.start();
 
 
-        System.out.println("\nMain memory");
-        for(int i = 0; i< 500;i++){
+        System.out.println("\nDrum");
+        for(int i = 0; i< 150;i++){
             System.out.print(i+" : ");
             for(int j = 0;j<4;j++){
                 System.out.print(obj.drum[i][j]);
+            }
+            System.out.println();
+        }
+
+        System.out.println("\nMain Memory");
+        for(int i = 0; i< 300;i++){
+            System.out.print(i+" : ");
+            for(int j = 0;j<4;j++){
+                System.out.print(obj.memory[i][j]);
             }
             System.out.println();
         }
@@ -250,7 +259,7 @@ class OS3{
         MOS();
         startChannel(1);
 
-        while(!ifb.isEmpty() || !TQ.isEmpty() || !ofb.isEmpty() || !IoQ.isEmpty() || !RQ.isEmpty() || !LQ.isEmpty() || time<226 || !spoolQueue.isEmpty()){
+        while((!ifb.isEmpty() || !TQ.isEmpty() || !ofb.isEmpty() || !IoQ.isEmpty() || !RQ.isEmpty() || !LQ.isEmpty() || !spoolQueue.isEmpty()) && time<35 ){
             System.out.print("Active channels: ");
             System.out.println(CH[1] + " "+CH[2] + " " + CH[3]);
             System.out.print("Channel timers: ");
@@ -285,12 +294,12 @@ class OS3{
 //                System.out.print(job.getJobId());
 //            }
 //            System.out.println();
-            System.out.println("time: "+time);
+            System.out.println("\ntime: "+time);
 
 
 
 
-            executeUserProgram();
+//            executeUserProgram();
             simulate();
             MOS();
         }
@@ -491,10 +500,11 @@ class OS3{
             job = LQ.peek();
         }
         else if(!spoolQueue.isEmpty()){
-            job = spoolQueue.poll();
+            job = spoolQueue.peek();
         }
         switch (task[0]){
             case 'I':
+                System.out.println("Input Spooling");
                 index = ifb.poll();
                 if(bufferStat[index] == 'P'){
                     load_memory_instructions_drum(supervisoryStorage[index],job.Ptrack + 10*job.loadedPcards);
@@ -504,18 +514,22 @@ class OS3{
                 else if(bufferStat[index] == 'D'){
                     load_memory_data_Drum(supervisoryStorage[index],job.Dtrack + 10*job.loadedDcards);
                     job.loadedDcards++;
-//                    if(job.loadedDcards == job.Dcards && job.loadedDcards == job.Dcards){
-//
-//                    }
+                    if(job.loadedDcards == job.Dcards && job.loadedDcards == job.Dcards){
+                        spoolQueue.poll();
+                    }
 
                     bufferStat[index] = 'E';
                 }
                 buffer_reset(index);
                 ebq.add(index);
                 task[0] = '@';task[1] = '@';
+                break;
             case 'L':
-
-                LQ.poll();
+                System.out.println("Loading started");
+                load(LQ.peek());
+                RQ.add(LQ.poll());
+                task[0] = '@';task[1] = '@';
+                break;
 
         }
         if(!TQ.isEmpty()){
@@ -672,12 +686,12 @@ class OS3{
 
         System.out.println("Exec started");
         IC = 0;
-        executeUserProgram();   //slave mode
+//        executeUserProgram();   //slave mode
     }
 
 
 
-    public void executeUserProgram(){
+    public void executeUserProgram(PCB job){
         //loading IR
         if(RQ.isEmpty()){
             return;
@@ -848,81 +862,30 @@ class OS3{
     }
 
 
-    public void load(){
+    public void load(PCB job1){
+        while(used_frames[PTR = random.nextInt(30)] != 0){}
+        used_frames[PTR] = 1;
 
-        //loading from card to buffer
+        int loaded_pcards = 0;
+        while(loaded_pcards != job1.Pcards){
+            int temp = Allocate();
+            int limit = temp+10;
 
-        try {
-            do {
-                int buffer_ptr = 0;
-                char [] temp;
-                temp = reader.readLine().toCharArray();
-                for (buffer_ptr = 0; buffer_ptr < temp.length; buffer_ptr++) {
-                    buffer[buffer_ptr] = temp[buffer_ptr];
+            for(int i = temp;i<limit;i++){
+                for(int j = 0;j<4;j++){
+                    memory[i][j] = drum[job1.Ptrack + loaded_pcards+ i-temp][j];
                 }
-                System.out.println(buffer);
-
-                if (buffer[0] == '$' && buffer[1] == 'A' && buffer[2] == 'M' && buffer[3] == 'J') {
-                    pcb = new PCB();
-                    pcb.setJobId(((buffer[4] - '0')*1000) + ((buffer[5] - '0')*100) + ((buffer[6] - '0')*10) + ((buffer[7] - '0')));
-                    pcb.setTTL(((buffer[8] - '0')*1000) + ((buffer[9] - '0')*100) + ((buffer[10] - '0')*10) + ((buffer[11] - '0')));
-                    pcb.setTLL(((buffer[12] - '0')*1000) + ((buffer[13] - '0')*100) + ((buffer[14] - '0')*10) + ((buffer[15] - '0')));
-                    //page allocation
-                    System.out.println("Job id: " + pcb.getJobId());
-                    System.out.println("TTL: " + pcb.getTTL());
-                    System.out.println("TLL: " + pcb.getTLL());
-
-                    PTR = random.nextInt(30);
-                    used_frames[PTR] = 1;
-
-
-                    buffer_reset();
-                    continue;
-                }
-                else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
-                    //do something
-//                    return;
-                    buffer_reset();
-//                    mem_ptr = (mem_ptr % 10 == 0) ? mem_ptr : ((mem_ptr / 10 + 1) * 10);
-                    MOSstartExec();
-                }
-                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
-                    System.out.println("Program Over");
-                    printer();
-                    value_allocator();
-                }
-                else{
-                    //instruction frame allocation and loading
-                    temp1=Allocate() ;
-                    load_memory_instructions(temp1);
-                    buffer_reset();
-                }
-                if (buffer_ptr > 40) {
-                    System.out.println("Buffer Overload, quitting...");
-                    return;
-                }
-            }while(reader.ready());
-        } catch (IOException e) {
-            e.printStackTrace();
+            }
+            loaded_pcards++;
         }
     }
 
 
-    public void load_memory_instructions(int address){
-        int buffer_ptr2 = 0;
-        int limit = address+10;
-        while(buffer_ptr2<40 && buffer[buffer_ptr2]!='@' && address<limit){
-            for(int i = 0;i<4;i++){
-                if(buffer[buffer_ptr2] == '@')
-                    break;
-                memory[address][i] = buffer[buffer_ptr2];
-                if(buffer[buffer_ptr2]=='H'){
-                    buffer_ptr2++;
-                    break;
-                }
-                buffer_ptr2++;
+    public void load_memory_instructions(int address, int track){
+        for(int i = 0;i<address+10;i++){
+            for(int j = 0;j<4;j++){
+                memory[i][j] = drum[track + i][j];
             }
-            address++;
         }
 //        printer();
     }
@@ -1009,7 +972,7 @@ class OS3{
         else{
             while(memory[i][0]!='@'){i++;}
         }
-        System.out.println("PTE is " + i);
+
 
         memory[i][0] = '0';
         memory[i][3] = (char) (temp2 % 10 + '0');
