@@ -20,35 +20,11 @@ public class Phase_3 {
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
-//        obj.load();
-
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR1();
-        obj.IR3();
-        obj.IR3();
-        obj.IR3();
-        obj.IR3();
-        obj.IR3();
-        obj.IR3();
-        obj.IR3();
-        obj.IR1();
-        obj.IR3();obj.IR1();
-        obj.IR3();obj.IR1();
-        obj.IR3();obj.IR1();
-        obj.IR3();obj.IR1();
-        obj.IR3();
+        obj.start();
 
 
         System.out.println("\nMain memory");
-        for(int i = 0; i< 300;i++){
+        for(int i = 0; i< 500;i++){
             System.out.print(i+" : ");
             for(int j = 0;j<4;j++){
                 System.out.print(obj.drum[i][j]);
@@ -65,7 +41,7 @@ public class Phase_3 {
 class OS3{
     char [] buffer;
     char [][] supervisoryStorage;
-    //buffer counters;
+    char [] bufferStat;
     char [][] memory;       //RAM
     char [][] drum;     //secondary storage
     int mem_ptr;
@@ -90,6 +66,10 @@ class OS3{
     int IRi; //Interrupt service routine
     int IOI; // Input output interrupt
 
+
+    //timers
+    int time;
+    int TSC;
     //channels
     boolean CH[];
     int CHT[];
@@ -101,8 +81,10 @@ class OS3{
     int temp1;   //temporary usage variable
     Random random;
     PCB pcb; // pcb data structure;
+    PCB job; //for channel 3
     char F; //flow status for channel 3;
     char[] task; // for channel 3;
+    Queue<PCB> spoolQueue;
 
 
 
@@ -118,9 +100,16 @@ class OS3{
         int Dcards;
         int Otrack;
         int Olines;
+
+        //miscellaneous
+        int loadedPcards;
+        int loadedDcards;
+
         public PCB(){
             LLC = 0;
             TTC = 0;
+            loadedDcards = 0;
+            loadedPcards = 0;
         }
 
 
@@ -136,20 +125,51 @@ class OS3{
             this.TTL = TTL;
         }
 
+
+        public void setDtrack(int dtrack) {
+            this.Dtrack = dtrack;
+        }
+
+        public void setDcards(int dcards) {
+            this.Dcards = dcards;
+        }
+
+        public void setPcards(int pcards) {
+            this.Pcards = pcards;
+        }
+
+        public int getDcards() {
+            return this.Dcards;
+        }
+
+        public int getPcards() {
+            return this.Pcards;
+        }
+
+        public void setPtrack(int ptrack) {
+            Ptrack = this.Ptrack;
+        }
+        public void incrementLLC(){
+            this.LLC+=1;
+        }
+        public void incrementTTC(){
+            this.TTC+=1;
+        }
         public int getJobId() {
-            return jobId;
+            return this.jobId;
         }
 
         public int getTLL() {
-            return TLL;
+            return this.TLL;
         }
 
         public int getTTL() {
-            return TTL;
+            return this.TTL;
         }
     }
     File input;
     FileReader fr;
+
 
 
     public OS3() throws FileNotFoundException {
@@ -168,7 +188,8 @@ class OS3{
         ifb = new LinkedList<>();
         ofb = new LinkedList<>();
         ebq = new LinkedList<>();
-
+        spoolQueue = new LinkedList<>();
+        bufferStat = new char[10];
         CH = new boolean[4];
         CH_TOT = new int[4];
         CHT = new int[4];
@@ -177,8 +198,6 @@ class OS3{
         value_allocator();
 
     }
-
-
     private void value_allocator() throws FileNotFoundException {
         //value allocation
         for(int i = 0;i<4;i++){
@@ -207,14 +226,16 @@ class OS3{
         TI = 0;
         PI = 0;
         IRi = 0;
-
+        time = 0;
+        TSC = 9;
         for(int i = 0;i<10;i++){
             ebq.add(i);
+            bufferStat[i] = 'E';
         }
 
         CH_TOT[1] = 5;
         CH_TOT[2] = 5;
-        CH_TOT[3] = 3;
+        CH_TOT[3] = 2;
         F = 'N';
         used_frames = new int[30];
 
@@ -223,9 +244,60 @@ class OS3{
 
     }
 
+    public void start(){
+        IOI = 1;
+        simulate();
+        MOS();
+        startChannel(1);
+
+        while(!ifb.isEmpty() || !TQ.isEmpty() || !ofb.isEmpty() || !IoQ.isEmpty() || !RQ.isEmpty() || !LQ.isEmpty() || time<226 || !spoolQueue.isEmpty()){
+            System.out.print("Active channels: ");
+            System.out.println(CH[1] + " "+CH[2] + " " + CH[3]);
+            System.out.print("Channel timers: ");
+            System.out.println(CHT[1] + " "+ CHT[2] + " " + CHT[3]);
+            System.out.println("ifb: "+ifb);
+            System.out.println("ofb: "+ofb);
+            System.out.println("ebq: "+ebq);
+            System.out.println(bufferStat);
+            System.out.println("IOI = " + IOI);
+
+            if(!LQ.isEmpty()){
+                System.out.print("LQ: ");
+                for(PCB job : LQ){
+                    System.out.print(job.getJobId());
+                }
+            }
+            if(!spoolQueue.isEmpty()){
+                System.out.print("SQ: ");
+                for(PCB job : spoolQueue){
+                    System.out.print(job.getJobId());
+                }
+            }
+
+//            System.out.println();
+//            System.out.print("RQ: ");
+//            for(PCB job : RQ){
+//                System.out.print(job.getJobId());
+//            }
+//            System.out.println();
+//            System.out.print("TQ: ");
+//            for(PCB job : TQ){
+//                System.out.print(job.getJobId());
+//            }
+//            System.out.println();
+            System.out.println("time: "+time);
+
+
+
+
+            executeUserProgram();
+            simulate();
+            MOS();
+        }
+    }
+
 
     public void MOS(){
-
         if(PI != 0){
             switch (PI) {
                 case 1:
@@ -332,21 +404,80 @@ class OS3{
 
     public void IR1(){
         try {
-            if(reader.ready()){
+            if(reader.ready()) {
                 char[] temp;
-                int index = ebq.poll();
-                temp = reader.readLine().toCharArray();
-                for(int i = 0;i<temp.length && i<40;i++){
-                    supervisoryStorage[index][i] = temp[i];
+                if(!ebq.isEmpty()){
+                    int index = ebq.poll();
+                    temp = reader.readLine().toCharArray();
+                    for (int i = 0; i < temp.length && i < 40; i++) {
+                        supervisoryStorage[index][i] = temp[i];
+                    }
+//                    ifb.add(index);
+                    startChannel(1);
+                    CH[1] = true;
+                    if (supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'A' && supervisoryStorage[index][2] == 'M' && supervisoryStorage[index][3] == 'J') {
+                        System.out.println("AMJ detected, initializing PCB");
+                        pcb = new PCB();
+                        pcb.setJobId(((supervisoryStorage[index][4] - '0') * 1000) + ((supervisoryStorage[index][5] - '0') * 100) + ((supervisoryStorage[index][6] - '0') * 10) + ((supervisoryStorage[index][7] - '0')));
+                        pcb.setTTL(((supervisoryStorage[index][8] - '0') * 1000) + ((supervisoryStorage[index][9] - '0') * 100) + ((supervisoryStorage[index][10] - '0') * 10) + ((supervisoryStorage[index][11] - '0')));
+                        pcb.setTLL(((supervisoryStorage[index][12] - '0') * 1000) + ((supervisoryStorage[index][13] - '0') * 100) + ((supervisoryStorage[index][14] - '0') * 10) + ((supervisoryStorage[index][15] - '0')));
+                        pcb.Ptrack = emp_drum_ptr;
+                        pcb.Pcards = 0;
+                        pcb.Dtrack = emp_drum_ptr+10;
+                        System.out.println("Job id: " + pcb.getJobId());
+                        System.out.println("TTL: " + pcb.getTTL());
+                        System.out.println("TLL: " + pcb.getTLL());
+                        System.out.println("Ptrack: " + pcb.Ptrack);
+                        System.out.println("Dtrack: " + pcb.Dtrack);
+                        spoolQueue.add(pcb);
+                        buffer_reset(index);
+                        ebq.add(index);
+                        System.out.println("ebq " + ebq);
+
+                        F = 'P';
+                    }
+                    else if (supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'D' && supervisoryStorage[index][2] == 'T' && supervisoryStorage[index][3] == 'A') {
+                        System.out.println("DTA detected, changing buffer status...");
+                        pcb.Dtrack = emp_drum_ptr;
+                        pcb.Dcards = 0;
+                        System.out.println("Dtrack " + pcb.Dtrack);
+                        buffer_reset(index);
+
+                        ebq.add(index);
+                        F = 'D';
+                    }
+                    else if (supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'E' && supervisoryStorage[index][2] == 'N' && supervisoryStorage[index][3] == 'D') {
+                        buffer_reset(index);
+                        ebq.add(index);
+                        System.out.println("END detected, putting job in Spool queue");
+
+                        LQ.add(pcb);
+                        IOI+=4;
+//                        startChannel(3);
+
+                    } else {
+                        if (F == 'P') {
+                            System.out.println("Program card incoming");
+                            System.out.println(supervisoryStorage[index]);
+                            pcb.Pcards++;
+                            emp_drum_ptr += 10;
+                            bufferStat[index] = 'P';
+                            ifb.add(index);
+
+                        } else if (F == 'D') {
+                            System.out.println("Data card incoming");
+                            System.out.println(supervisoryStorage[index]);
+                            pcb.Dcards++;
+                            emp_drum_ptr += 10;
+                            bufferStat[index] = 'D';
+                            ifb.add(index);
+
+                        }
+
+
+                    }
                 }
-                ifb.add(index);
-                System.out.println("Ifb: - "+ifb);
-                CH[1] = true;
-
-
-
             }
-
 
         } catch (IOException e) {
             System.out.println("Error at file reading");
@@ -355,103 +486,57 @@ class OS3{
     public void IR2(){}
 
     public void IR3(){
-        //examination of ifb
+        int index;
+        if(!LQ.isEmpty() && LQ.peek().loadedDcards != LQ.peek().Dcards){
+            job = LQ.peek();
+        }
+        else if(!spoolQueue.isEmpty()){
+            job = spoolQueue.poll();
+        }
         switch (task[0]){
             case 'I':
-                if(!ifb.isEmpty()){
-                    int index = ifb.poll();
-                    if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'A' && supervisoryStorage[index][2] == 'M' && supervisoryStorage[index][3] == 'J'){
-                        System.out.println("AMJ detected, initializing PCB");
-                        pcb = new PCB();
-                        pcb.setJobId(((buffer[4] - '0')*1000) + ((buffer[5] - '0')*100) + ((buffer[6] - '0')*10) + ((buffer[7] - '0')));
-                        pcb.setTTL(((buffer[8] - '0')*1000) + ((buffer[9] - '0')*100) + ((buffer[10] - '0')*10) + ((buffer[11] - '0')));
-                        pcb.setTLL(((buffer[12] - '0')*1000) + ((buffer[13] - '0')*100) + ((buffer[14] - '0')*10) + ((buffer[15] - '0')));
-                        pcb.Ptrack = emp_drum_ptr;
-                        pcb.Pcards = 0;
-                        //page allocation
-                        System.out.println("Job id: " + pcb.getJobId());
-                        System.out.println("TTL: " + pcb.getTTL());
-                        System.out.println("TLL: " + pcb.getTLL());
-                        System.out.println("Ptrack: " + pcb.Ptrack);
-                        System.out.println("Dtrack: " + pcb.Dtrack);
-
-                        buffer_reset(index);
-                        ebq.add(index);
-                        System.out.println("ebq " + ebq);
-
-                        F = 'P';
-                    }
-                    else if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'D' && supervisoryStorage[index][2] == 'T' && supervisoryStorage[index][3] == 'A'){
-                        System.out.println("DTA detected, changing buffer status...");
-                        pcb.Dtrack = emp_drum_ptr;
-                        pcb.Dcards = 0;
-                        buffer_reset(index);
-                        ebq.add(index);
-                        F = 'D';
-                    }
-                    else if(supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'E' && supervisoryStorage[index][2] == 'N' && supervisoryStorage[index][3] == 'D'){
-                        buffer_reset(index);
-                        ebq.add(ifb.poll());
-                        System.out.println("END detected, putting job in ready queue");
-                        RQ.add(pcb);
-                        System.out.println("RQ is:" + RQ.peek().jobId);
-
-                    }
-                    else{
-                        if(F == 'P'){
-                            System.out.println("Program card incoming");
-                            System.out.println(supervisoryStorage[index]);
-                            load_memory_instructions_drum(supervisoryStorage[index],pcb.Ptrack + 10*pcb.Pcards);
-                            pcb.Pcards++;
-                            emp_drum_ptr+=10;
-                            buffer_reset(index);
-                            ebq.add(index);
-
-                        }
-                        else if(F == 'D'){
-                            System.out.println("Data card incoming");
-                            System.out.println(supervisoryStorage[index]);
-                            load_memory_data_Drum(supervisoryStorage[index],pcb.Dtrack + 10*pcb.Dcards);
-                            pcb.Dcards++;
-                            emp_drum_ptr+=10;
-                            buffer_reset(index);
-                            ebq.add(index);
-
-                        }
-                    }
+                index = ifb.poll();
+                if(bufferStat[index] == 'P'){
+                    load_memory_instructions_drum(supervisoryStorage[index],job.Ptrack + 10*job.loadedPcards);
+                    job.loadedPcards ++;
+                    bufferStat[index] = 'E';
                 }
-                break;
-            case 'O':
-                pcb.Otrack = emp_drum_ptr;
+                else if(bufferStat[index] == 'D'){
+                    load_memory_data_Drum(supervisoryStorage[index],job.Dtrack + 10*job.loadedDcards);
+                    job.loadedDcards++;
+//                    if(job.loadedDcards == job.Dcards && job.loadedDcards == job.Dcards){
+//
+//                    }
 
-                break;
+                    bufferStat[index] = 'E';
+                }
+                buffer_reset(index);
+                ebq.add(index);
+                task[0] = '@';task[1] = '@';
+            case 'L':
 
+                LQ.poll();
 
         }
         if(!TQ.isEmpty()){
-            pcb = TQ.poll();
-            int index = ebq.poll();
-            int track = pcb.Otrack+pcb.Olines;
-            task[0] = 'O';task[1] = 'S';
-            CH[3] = true;
+            task[0] = 'O'; task[1] = 'S';
         }
         else if(!ifb.isEmpty()){
-            int index = ifb.poll();
-            task[0] = 'I';task[1] = 'S';
+            task[0] = 'I'; task[1] = 'S';
+            startChannel(3);
+
         }
         else if(!LQ.isEmpty()){
-            task[0] = 'L';task[1] = 'D';
+            task[0] = 'L'; task[1] = 'D';
+            startChannel(3);
         }
-
-
         else if(!IoQ.isEmpty()){
-            if(SI == 1){
-                task[0] = 'G'; task[1] = 'D';
-            }
-            if(SI == 2){
-                task[0] = 'P'; task[1] = 'D';
-            }
+            task[0] = 'G'; task[1] = 'D';
         }
+
+
+
+        //examination of ifb
 
 
 
@@ -594,6 +679,9 @@ class OS3{
 
     public void executeUserProgram(){
         //loading IR
+        if(RQ.isEmpty()){
+            return;
+        }
         int ra = realAddress(IC);
         while (IC<99 && memory[ra][0] != '@') {
             System.out.println("IC is " + IC);
@@ -964,6 +1052,44 @@ class OS3{
     }
 
 
+    public void startChannel(int i){
+        CH[i] = true;
+        CHT[i] = 0;
+        if(i == 1){
+            IOI -=1;
+        }
+        else if(i == 2){
+            IOI -= 2;
+        }
+        else if(i == 3){
+            IOI -=4;
+        }
+        if(IOI<0)
+            IOI = 0;
+    }
+
+    public void simulate(){
+
+        for(int i = 1;i<4;i++){
+            if(CH[i]){
+                CHT[i]++;
+                if(CHT[i] == CH_TOT[i]){
+                    CH[i] = false;
+                    if(i == 1)
+                        IOI += 1;
+                    if(i == 2)
+                        IOI += 2;
+                    if(i == 3)
+                        IOI += 4;
+                }
+            }
+
+        }
+        if(IOI>5){
+            IOI = 5;
+        }
+        time++;
+    }
 
 
 
