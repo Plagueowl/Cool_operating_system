@@ -2,8 +2,6 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Scanner;
-import java.io.FileWriter;
 
 public class Phase_1 {
 
@@ -28,8 +26,7 @@ class OS{
     boolean toggle;
     int SI; //system Interrupt
 
-    File input;
-    FileReader fr;
+
 
     public OS() throws FileNotFoundException {
         //size allocation
@@ -113,10 +110,7 @@ class OS{
     public void write(){
         System.out.println("Write executed");
         IR[3] = '0';
-        int buffer_ptr;
-        char [] temp;
         try{
-            IR[3] = '0';
             int memory_ptr = (IR[2]-'0')*10;
             int buffer_ptr4 = 0;
             int limit = memory_ptr+10;
@@ -142,7 +136,7 @@ class OS{
             buffer_reset();
         }
         catch(IOException e){
-            System.out.println("Exception occured at write()");
+            System.out.println("Exception occurred at write()");
             e.printStackTrace();
         }
 
@@ -154,11 +148,9 @@ class OS{
         try{
             System.out.println("Halt called");
             Files.write(Paths.get("out.txt"), "\n\n".getBytes(), StandardOpenOption.APPEND);
-            IC = 100;
-            return;
         }
         catch(IOException e){
-            System.out.println("Exception occured at halt()");
+            System.out.println("Exception occurred at halt()");
             e.printStackTrace();
         }
     }
@@ -197,15 +189,24 @@ class OS{
                     break;
                 case 'C':
                     if (IR[1] == 'R') {
-                        char a =IR[2];
-                        char b =IR[3];
-                        comparing(a,b);
+                        int c = (IR[2]-'0') * 10 + (IR[3]-'0') ;
+                        boolean flag = true;
+                        for (int i = 0; i < 4; i++) {
+                            if (R[i] != memory[c][i]) {
+                                flag = false;
+                                toggle = false;
+                                break;
+                            }
+                        }
+                        if(flag){
+                            toggle = true;
+                        }
                     }
                     break;
 
                 case 'B':
                     if(IR[1] == 'T'){
-                        if(toggle == true){
+                        if(toggle){
                             IC = (IR[2] - '0') *10 + (IR[3] - '0');
                         }
                     }
@@ -226,36 +227,14 @@ class OS{
                 case 'H':
                     SI = 3;
                     MOS();
-                    break;
-
-
-
-
-
-
+                    return;
             }
         }
     }
 
 
 
-    public void comparing( char a,char b) {
 
-
-        int c = (a-'0') * 10 + (b-'0') ;
-
-        for (int i = 0; i < 4; i++) {
-
-            if (R[i] == memory[c][i]) {
-                continue;
-            } else {
-                toggle = false;
-                return;
-            }
-        }
-        toggle = true;
-        return ;
-    }
 
 
     private static java.io.File file;
@@ -275,7 +254,7 @@ class OS{
 
         try {
             do {
-                int buffer_ptr = 0;
+                int buffer_ptr;
                 char [] temp;
                 temp = reader.readLine().toCharArray();
                 for (buffer_ptr = 0; buffer_ptr < temp.length; buffer_ptr++) {

@@ -1,5 +1,27 @@
 VIIT
+VIIT
+SAME
+
+
+NOT VOWEL
+
+
+*
+**
+***
+****
+***
+**
+*
+
+
+Hello worldHell
+Hehe boi
+Lunaboi
+
+
 VIT
+VIIT
 NOT SAME
 
 
@@ -13,5 +35,10 @@ NOT VOWEL
 ***
 **
 *
+
+
+Hello worldHell
+Hehe boi
+Lunaboi
 
 
