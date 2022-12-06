@@ -1,6 +1,6 @@
 VIIT
-VIT
-NOT SAME
+VIIT
+SAME
 
 
 JobID: 2	TTL: 16	TLL: 3
@@ -8,17 +8,17 @@ TTC: 14	LLC: 3
 
 SI: 3	PI: 0	TI: 0
 
-IC: 11
+IC: 13
 IR: H@@@
 R: VIIT
-Toggle: false
+Toggle: true
 
 Terminated Sucessfully
 
 NOT VOWEL
 
 
-JobID: 4	TTL: 24	TLL: 1
+JobID: 4	TTL: 23	TLL: 1
 TTC: 20	LLC: 1
 
 SI: 3	PI: 0	TI: 0
@@ -30,38 +30,54 @@ Toggle: false
 
 Terminated Sucessfully
 
-* 
-* * 
-* * * 
-* * * * 
-* * * 
-* * 
-* 
+*
+**
+***
+****
+***
+**
+*
 
 
-JobID: 6	TTL: 31	TLL: 7
+JobID: 6	TTL: 30	TLL: 7
 TTC: 24	LLC: 7
 
 SI: 3	PI: 0	TI: 0
 
 IC: 20
 IR: H@@@
-R: * @@
+R: *@@@
 Toggle: false
 
 Terminated Sucessfully
 
 Hello worldHell
 Hehe boi
+Lunaboi
 
 
-JobID: 7	TTL: 9	TLL: 3
-TTC: 10	LLC: 2
+JobID: 7	TTL: 12	TLL: 3
+TTC: 11	LLC: 3
 
-SI: 0	PI: 0	TI: 2
+SI: 3	PI: 0	TI: 0
 
-IC: 7
-IR: @@@@
+IC: 9
+IR: H@@@
+R: Hell
+Toggle: false
+
+Terminated Sucessfully
+
+Hello worldHell
+
+
+JobID: 7	TTL: 8	TLL: 3
+TTC: 8	LLC: 1
+
+SI: 2	PI: 0	TI: 2
+
+IC: 6
+IR: PD10
 R: Hell
 Toggle: false
 
@@ -114,7 +130,7 @@ Operand error
 
 
 JobID: 10	TTL: 14	TLL: 3
-TTC: 6	LLC: 0
+TTC: 13	LLC: 0
 
 SI: 0	PI: 1	TI: 0
 

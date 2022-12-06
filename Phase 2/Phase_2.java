@@ -1,3 +1,4 @@
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -31,13 +32,12 @@ class OS2{
     int IC;
     boolean toggle;
     //counters
-    int TTC;
-    int LLC;
+
     //interrupts
     int SI; //system Interrupt
     int TI; //Time interrupt
     int PI; //page interrupt
-    int EM; //errror message;
+    Integer EMg; //errror message global;
 
     //miscellaneous
     int [] used_frames; //keeps track of the frames used
@@ -49,6 +49,12 @@ class OS2{
         private int TTL;
         private int TLL;
         private int jobId;
+        int TTC;
+        int LLC;
+        public PCB(){
+            this.TTC = 0;
+            this.LLC = 0;
+        }
 
         public void setJobId(int jobId) {
             this.jobId = jobId;
@@ -74,8 +80,7 @@ class OS2{
             return TTL;
         }
     }
-    File input;
-    FileReader fr;
+
 
 
     public OS2() throws FileNotFoundException {
@@ -109,9 +114,7 @@ class OS2{
         toggle = false;
         mem_ptr = 0;
         SI = 0;
-        TTC = 0;
-        LLC = 0;
-        EM = 0;
+        EMg = null;
         TI = 0;
         PI = 0;
 
@@ -124,8 +127,6 @@ class OS2{
 
 
     public void MOS(){
-        if(TI == 2)
-            terminate(3);
         if(PI != 0){
             switch (PI) {
                 case 1:
@@ -150,7 +151,7 @@ class OS2{
                         if (SI == 1 || (IR[0] == 'S' && IR[1] == 'R')) {
                             System.out.println("Resolving..");
                             Allocate();
-                            TTC++;
+                            pcb.TTC++;
                         } else {
                             terminate(6);
                         }
@@ -167,7 +168,7 @@ class OS2{
 
         }
         else {
-            switch (SI) {
+            switch(SI){
                 case 1:
                     if (TI == 0) {
                         try {
@@ -195,6 +196,7 @@ class OS2{
             }
             SI = 0;
         }
+
     }
 
 
@@ -234,10 +236,8 @@ class OS2{
     public void write(){
         System.out.println("Write executed");
         IR[3] = '0';
-        int buffer_ptr;
-        char [] temp;
-        LLC++;
-        if(LLC>pcb.getTLL())
+        pcb.LLC++;
+        if(pcb.LLC>pcb.getTLL())
             terminate(2);
         else{
             try{
@@ -284,7 +284,8 @@ class OS2{
 
 
     public void terminate(int EM){
-        String jobDetails = "\n\nJobID: " + pcb.getJobId() + "\tTTL: " + pcb.getTTL() + "\tTLL: " + pcb.getTLL() + "\nTTC: " + TTC + "\tLLC: "+ LLC+"\n";
+        EMg = EM;
+        String jobDetails = "\n\nJobID: " + pcb.getJobId() + "\tTTL: " + pcb.getTTL() + "\tTLL: " + pcb.getTLL() + "\nTTC: " + pcb.TTC + "\tLLC: "+ pcb.LLC+"\n";
         String interrupts = "\nSI: "+SI+"\tPI: "+PI+"\tTI: "+TI+"\n";
         String cpuDetails = "\nIC: "+IC+"\nIR: "+IR[0]+IR[1]+IR[2]+IR[3] + "\nR: "+R[0]+R[1]+R[2]+R[3] + "\nToggle: "+toggle+"\n";
         try{
@@ -313,11 +314,9 @@ class OS2{
                     break;
 
             }
-            IC = 100;
-            return;
         }
         catch(IOException e){
-            System.out.println("Exception occured at halt()");
+            System.out.println("Exception occured at terminate()");
             e.printStackTrace();
         }
     }
@@ -336,6 +335,8 @@ class OS2{
         //loading IR
         int ra = realAddress(IC);
         while (IC<99 && memory[ra][0] != '@') {
+
+
             System.out.println("IC is " + IC);
             int ra2;
             for (int i = 0; i < 4; i++) {
@@ -354,7 +355,7 @@ class OS2{
                                 R[i] = memory[ra2][i];
                             }
                         }
-                        TTC++;
+                        pcb.TTC++;
                     }
                     else{
                         PI = 1;
@@ -371,7 +372,7 @@ class OS2{
                         for(int i = 0;i<4;i++){
                             memory[ra2][i] = R[i];
                         }
-                        TTC++;
+                        pcb.TTC++;
 
                     }
                     else{
@@ -385,10 +386,19 @@ class OS2{
                         if(PI == 3 || PI ==2)
                             MOS();
                         else{
-                            comparing(ra2);
-
+                            boolean flag = true;
+                            for (int i = 0; i < 4; i++) {
+                                if (R[i] != memory[ra2][i]) {
+                                    flag = false;
+                                    toggle = false;
+                                    break;
+                                }
+                            }
+                            if(flag){
+                                toggle = true;
+                            }
                         }
-                        TTC++;
+                        pcb.TTC++;
 
                     }
                     else{
@@ -399,7 +409,7 @@ class OS2{
 
                 case 'B':
                     if(IR[1] == 'T'){
-//                        ra2 = (IR[2] - '0')*10 + (IR[3] - '0');
+                        ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
                         if(PI == 3 || PI ==2)
                             MOS();
                         else{
@@ -407,7 +417,7 @@ class OS2{
                                 IC = (IR[2] - '0') *10 + (IR[3] - '0');
                             }
                         }
-                        TTC++;
+                        pcb.TTC++;
 
                     }
                     else{
@@ -420,7 +430,7 @@ class OS2{
                     if (IR[1] == 'D') {
                         SI = 1;
                         MOS();
-                        TTC++;
+                        pcb.TTC++;
 
                     }
                     else{
@@ -432,7 +442,7 @@ class OS2{
                     if (IR[1] == 'D') {
                         SI = 2;
                         MOS();
-                        TTC++;
+                        pcb.TTC++;
 
                     }
                     else{
@@ -443,8 +453,8 @@ class OS2{
                 case 'H':
                     SI = 3;
                     MOS();
-                    TTC++;
-                    break;
+                    pcb.TTC++;
+                    return;
                 default:
                     PI = 1;
                     MOS();
@@ -461,31 +471,21 @@ class OS2{
             }
 
             ra = realAddress(IC);
-            if(TTC>pcb.getTTL()){
+            if(pcb.TTC>=pcb.getTTL()){
                 TI = 2;
                 MOS();
             }
-
-
-        }
-    }
-
-
-
-    public void comparing(int c) {
-
-        for (int i = 0; i < 4; i++) {
-
-            if (R[i] == memory[c][i]) {
-                continue;
-            } else {
-                toggle = false;
+            if(EMg!=null){
                 return;
             }
+
+
         }
-        toggle = true;
-        return ;
     }
+
+
+
+
 
 
     private static java.io.File file;
@@ -509,7 +509,7 @@ class OS2{
                 int buffer_ptr = 0;
                 char [] temp;
                 temp = reader.readLine().toCharArray();
-                for (buffer_ptr = 0; buffer_ptr < temp.length; buffer_ptr++) {
+                for (buffer_ptr = 0; buffer_ptr < temp.length && buffer_ptr < 40; buffer_ptr++) {
                     buffer[buffer_ptr] = temp[buffer_ptr];
                 }
                 System.out.println(buffer);
@@ -529,16 +529,12 @@ class OS2{
 
 
                     buffer_reset();
-                    continue;
                 }
                 else if (buffer[0] == '$' && buffer[1] == 'D' && buffer[2] == 'T' && buffer[3] == 'A') {
-                    //do something
-//                    return;
                     buffer_reset();
-//                    mem_ptr = (mem_ptr % 10 == 0) ? mem_ptr : ((mem_ptr / 10 + 1) * 10);
                     MOSstartExec();
                 }
-                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {  //Add D of $END later
+                else if (buffer[0] == '$' && buffer[1] == 'E' && buffer[2] == 'N' && buffer[3] == 'D') {
                     System.out.println("Program Over");
                     printer();
                     value_allocator();
@@ -549,10 +545,7 @@ class OS2{
                     load_memory_instructions(temp1);
                     buffer_reset();
                 }
-                if (buffer_ptr > 40) {
-                    System.out.println("Buffer Overload, quitting...");
-                    return;
-                }
+
             }while(reader.ready());
         } catch (IOException e) {
             e.printStackTrace();
@@ -576,7 +569,7 @@ class OS2{
             }
             address++;
         }
-//        printer();
+
     }
 
 
@@ -613,7 +606,7 @@ class OS2{
         used_frames[temp2] = 1;
         temp2 = temp2 *10;
         int ret = temp2;
-        int i = PTR;
+        int i = PTR * 10;
         if(IR[2] != '@')
             i = getPTE((IR[2]-'0') *10);
         else{
@@ -653,12 +646,11 @@ class OS2{
             return -1;
         }
         int ra = (memory[pte][1]-'0') * 100 + (memory[pte][2] - '0')*10 + (memory[pte][3] - '0') + VA%10; //real address
-        //operand errors
 
         return ra;
     }
     private int getPTE(int VA){
-        return PTR + VA/10;
+        return (PTR *10) + VA/10;
     }
 
 
@@ -676,8 +668,8 @@ class OS2{
         System.out.println(R);
         System.out.println("Toggle:");
         System.out.println(toggle);
-        System.out.println("TTC: "+TTC);
-        System.out.println("LLC: "+LLC);
+        System.out.println("TTC: "+pcb.TTC);
+        System.out.println("LLC: "+pcb.LLC);
         System.out.println("TTL: "+pcb.getTTL());
         System.out.println("TLL: "+pcb.getTLL());
 
