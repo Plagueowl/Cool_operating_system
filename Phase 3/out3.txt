@@ -1,5 +1,50 @@
+VIIT
+VIIT
+SAME
+
+Terminated Sucessfully
+
+
 NOT VOWEL
 
 Terminated Sucessfully
+
+
+
+*
+**
+***
+**
+*
+
+
+Terminated Sucessfully
+
+
+
+Time Limit Exceeded
+
+
+Hello worldHell
+Hehe boi
+Lunaboi
+
+Line limit exceeded
+
+
+
+Invalid Page fault
+
+
+
+Operand Error
+
+
+
+OP code error
+
+
+
+Out of Data 
 
 

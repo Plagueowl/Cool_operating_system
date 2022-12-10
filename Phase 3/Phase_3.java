@@ -159,7 +159,7 @@ class OS3{
         value_allocator();
 
     }
-    private void value_allocator() throws FileNotFoundException {
+    private void value_allocator() {
         //value allocation
         for(int i = 0;i<4;i++){
             IR[i] = '@';
@@ -266,7 +266,7 @@ class OS3{
         MOS();
         simulate();
 
-        while(!ifb.isEmpty() || !TQ.isEmpty() || !ofb.isEmpty() || !IoQ.isEmpty() || !RQ.isEmpty() || !LQ.isEmpty() || CH[3] || CH[1] || CH[2] || time<150 ){
+        while(!ifb.isEmpty() || !TQ.isEmpty() || !ofb.isEmpty() || !IoQ.isEmpty()|| !RQ.isEmpty() || !LQ.isEmpty() || CH[1] || CH[2] || CH[3] || time <6){
             System.out.print("Active channels: ");
             System.out.println(CH[1] + " "+CH[2] + " " + CH[3]);
             System.out.print("Channel timers: ");
@@ -293,19 +293,19 @@ class OS3{
                 }
             }
             System.out.println();
-//            if(!IoQ.isEmpty()) {
-//                System.out.print("IoQ: ");
-//                for (PCB job : IoQ) {
-//                    System.out.print(job.getJobId());
-//                }
-//            }
-            System.out.println();
-            if(!TQ.isEmpty()){
-                System.out.print("TQ: ");
-                for(PCB job : TQ){
+            if(!IoQ.isEmpty()) {
+                System.out.print("IoQ: ");
+                for (PCB job : IoQ) {
                     System.out.print(job.getJobId());
                 }
             }
+            System.out.println();
+//            if(!TQ.isEmpty()){
+//                System.out.print("TQ: ");
+//                for(PCB job : TQ){
+//                    System.out.print(job.getJobId());
+//                }
+//            }
 
             System.out.println();
             System.out.println("\ntime: "+time);
@@ -360,8 +360,8 @@ class OS3{
             }
 
             PI = 0;
-            return;
 
+            return;
 
         }
         else if(SI!=0) {
@@ -393,6 +393,12 @@ class OS3{
             }
             SI = 0;
             return;
+        }
+        else if(TI!=0){
+            if(TI == 2 && !RQ.isEmpty()){
+                RQ.peek().terminate_stat = 3;
+                TQ.add(RQ.poll());
+            }
         }
         switch (IOI){
             case 0:
@@ -456,7 +462,6 @@ class OS3{
                         System.out.println("Dtrack: " + pcb.Dtrack);
                         buffer_reset(index);
                         ebq.add(index);
-                        System.out.println("ebq " + ebq);
 
                         F = 'P';
                     }
@@ -541,25 +546,10 @@ class OS3{
                     return;
                 }
                 index = ebq.poll();
-                int Otrack = job.Otrack + 10 * job.loadedOcards;
-                int limit = Otrack+10;
-                int buffer_ptr = 0;
-                for(int i = Otrack;i < limit;i++){
-                    for(int j = 0;j<4;j++){
-                        if(drum[i][j] == '@')
-                            continue;
-                        supervisoryStorage[index][buffer_ptr] = drum[i][j];
-                        buffer_ptr++;
-                    }
-                }
-
-                ofb.add(index);
-                job.loadedOcards++;
-                //Error messages
-                if(job.loadedOcards == job.Olines) {
+                //TODO: check write then terminate i.e when time limit error, then no need to follow second if, if line limit error, then follow second if
+                if(job.loadedOcards == job.Olines || job.terminate_stat == 3) {
                     char[] em;
                     if (!ebq.isEmpty()) {
-                        index = ebq.poll();
                         switch (job.terminate_stat) {
                             case 0:
                                 em = ("\nTerminated Sucessfully\n\n").toCharArray();
@@ -605,19 +595,40 @@ class OS3{
                                 break;
                         }
                         ofb.add(index);
+
+                        //saving the state of the system then clearing the drum and resetting the cpu for the next task
+                        String jobDetails = "\n\nJobID: " + job.getJobId() + "\tTTL: " + job.getTTL() + "\tTLL: " + job.getTLL() + "\nTTC: " + job.TTC + "\tLLC: "+ job.LLC+"\n";
+                        save_state(jobDetails);
+                        reset_cpu();
                     }
 
-                    task[0] = '@';
-                    task[1] = '@';
-                    //saving the state of the system then clearing the drum and resetting the cpu for the next task
-                    String jobDetails = "\n\nJobID: " + job.getJobId() + "\tTTL: " + job.getTTL() + "\tTLL: " + job.getTLL() + "\nTTC: " + job.TTC + "\tLLC: "+ job.LLC+"\n";
-                    save_state(jobDetails);
-                    reset_cpu();
-
-                    //TODO: Add clear drum here
                     TQ.poll();
-
+                    //TODO: Add clear drum here
                 }
+                else {
+                    if(!ebq.isEmpty()) {
+                    int Otrack = job.Otrack + 10 * job.loadedOcards;
+                    int limit = Otrack + 10;
+                    int buffer_ptr = 0;
+                    for (int i = Otrack; i < limit; i++) {
+                        for (int j = 0; j < 4; j++) {
+                            if (drum[i][j] == '@')
+                                continue;
+                            supervisoryStorage[index][buffer_ptr] = drum[i][j];
+                            buffer_ptr++;
+                        }
+
+
+                    }
+
+                    ofb.add(index);
+                    job.loadedOcards++;
+                }
+                }
+
+                task[0] = '@';
+                task[1] = '@';
+
                 break;
 
             case 'I':
@@ -647,7 +658,7 @@ class OS3{
 
                 int page = Allocate();
                 int track = job.Ptrack + (job.loadedPcards *10);
-                limit = track+10;
+                int limit = track+10;
                 for(int i = track;i<limit;i++){
                     for(int j = 0;j<4;j++){
                         memory[page + i - track][j] = drum[i][j];
@@ -660,15 +671,20 @@ class OS3{
                 }
                 pcb.loadedDcards = 0; //for GD purposes
                 task[0] = '@';task[1] = '@';
-                printer();
                 break;
             case 'R':
-//                int ram_add = realAddress()
                 System.out.println("GD started");
+                if(job.loadedDcards == job.Dcards){
+                    job.terminate_stat = 1;
+                    TQ.add(IoQ.poll());
+                    task[0] = '@';task[1] = '@';
+                    return;
+                }
                 ram_add = realAddress((IR[2]-'0') *10);
 
                 limit = ram_add+10;
                 System.out.println("Ram add: " + ram_add);
+
                 for(int i = ram_add;i < limit;i++){
                     for(int j = 0;j<4;j++){
                         memory[i][j] = drum[job.Dtrack+ (job.loadedDcards * 10)+ (i - ram_add)][j];
@@ -680,6 +696,8 @@ class OS3{
                 break;
             case 'W':
                 System.out.println("PD in channel 3");
+
+
                 ram_add = realAddress((IR[2]-'0') *10);
                 limit = ram_add+10;
                 for(int i = ram_add;i < limit;i++){
@@ -688,6 +706,14 @@ class OS3{
                     }
                 }
                 job.Olines++;
+                job.LLC++;
+                if(job.LLC>job.getTLL()){
+                    job.terminate_stat = 2;
+                    task[0] = '@';task[1] = '@';
+                    TQ.add(IoQ.poll());
+                    return;
+                }
+
                 RQ.add(IoQ.poll());
                 task[0] = '@';task[1] = '@';
                 break;
@@ -713,10 +739,10 @@ class OS3{
         else if(!IoQ.isEmpty()){
             if(IR[0] == 'G' && IR[1] == 'D') {
                 job = IoQ.peek();
-                if(job.Dcards == job.loadedDcards){
-                    job.terminate_stat = 3;
-                    return;
-                }
+//                if(job.Dcards == job.loadedDcards){
+//                    job.terminate_stat = 3;
+//                    return;
+//                }
 
                 task[0] = 'R';
                 task[1] = 'D';
@@ -751,12 +777,12 @@ class OS3{
 
     public void executeUserProgram(){
         //loading IR
-        if(RQ.isEmpty() || SI!=0 || PI!=0)
+        if(RQ.isEmpty() || SI!=0 || PI!=0 || TI!=0)
             return;
         PCB job = RQ.peek();
         IC = job.IC;
         int ra = realAddress(IC);
-        while (IC<99 && memory[ra][0] != '@' && SI==0 && PI==0) {
+        while (IC<99 && memory[ra][0] != '@' && SI==0 && PI==0 && TI==0) {
             System.out.println("IC is " + IC);
             int ra2;
             for (int i = 0; i < 4; i++) {
@@ -770,7 +796,7 @@ class OS3{
                     if(IR[1] == 'R'){
                         ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
                         if(PI == 3 || PI ==2)
-                            MOS();
+                            return;
                         else{
                             for(int i = 0;i<4;i++){
                                 R[i] = memory[ra2][i];
@@ -785,7 +811,7 @@ class OS3{
                     if(IR[1] == 'R'){
                         ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
                         if(PI == 3 || PI ==2)
-                            MOS();
+                            return;
                         ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
 
                         for(int i = 0;i<4;i++){
@@ -801,7 +827,7 @@ class OS3{
                     if (IR[1] == 'R') {
                         ra2 = realAddress((IR[2] - '0')*10 + (IR[3] - '0'));
                         if(PI == 3 || PI ==2)
-                            MOS();
+                            return;
                         else{
                             boolean flag = true;
                             for (int i = 0; i < 4; i++) {
@@ -820,7 +846,6 @@ class OS3{
                     }
                     else{
                         PI = 1;
-                        MOS();
                     }
                     break;
 
@@ -843,7 +868,7 @@ class OS3{
 
                 case 'G':
                     if (IR[1] == 'D') {
-                        int ra3 = realAddress((IR[2]-'0') *10);
+                        realAddress((IR[2]-'0') *10);
                         if(PI == 2){
                             MOS();
                             return;
@@ -861,6 +886,11 @@ class OS3{
                     break;
                 case 'P':
                     if (IR[1] == 'D') {
+                        realAddress((IR[2]-'0') *10);
+                        if(PI == 2 || PI == 3){
+//                            MOS();
+                            return;
+                        }
                         SI = 2;
                         job.TTC++;
                         return;
@@ -883,7 +913,7 @@ class OS3{
             ra = realAddress(IC);
             if(job.TTC>job.getTTL()){
                 TI = 2;
-                MOS();
+                return;
             }
 
 
