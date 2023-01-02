@@ -63,7 +63,8 @@ class OS3{
 
 
     //miscellaneous
-    int [] used_frames; //keeps track of the frames used
+    int [] used_frames_ram; //keeps track of the frames used in ram
+    int [] used_frames_drum; //keeps track of the frames used in drum
     Random random;
     PCB pcb; // pcb data structure;
     PCB job; //for channel 3
@@ -92,7 +93,8 @@ class OS3{
         int loadedDcards;
         int loadedOcards;
         int IC;
-        Integer PTR_stor;
+        Integer PTR_ram;
+        Integer PTR_drum;
         int terminate_stat;
 
 
@@ -103,7 +105,8 @@ class OS3{
             this.loadedPcards = 0;
             this.loadedOcards = 0;
             this.IC = 0;
-            this.PTR_stor = null;
+            this.Otrack = -1;
+            this.PTR_ram= null;
         }
 
 
@@ -155,6 +158,8 @@ class OS3{
         CH_TOT = new int[4];
         CHT = new int[4];
         task = new char[2];
+        used_frames_ram = new int[30];
+        used_frames_drum = new int[50];
 
         value_allocator();
 
@@ -198,7 +203,6 @@ class OS3{
         CH_TOT[2] = 5;
         CH_TOT[3] = 2;
         F = 'N';
-        used_frames = new int[30];
 
 
 
@@ -310,6 +314,8 @@ class OS3{
             System.out.println();
             System.out.println("\ntime: "+time);
 
+            System.out.println("SI: " + SI + " PI: " + PI + " TI: "+ TI);
+
 
 
             executeUserProgram();
@@ -348,7 +354,7 @@ class OS3{
                         System.out.println("page fault");
                         if (IR[0] == 'G' && IR[1] == 'D' || (IR[0] == 'S' && IR[1] == 'R')) {
                             System.out.println("Resolving..");
-                            Allocate();
+                            Allocate_ram();
                             pcb.TTC++;
                         } else {
                             RQ.peek().terminate_stat = 6;
@@ -452,9 +458,11 @@ class OS3{
                         pcb.setJobId(((supervisoryStorage[index][4] - '0') * 1000) + ((supervisoryStorage[index][5] - '0') * 100) + ((supervisoryStorage[index][6] - '0') * 10) + ((supervisoryStorage[index][7] - '0')));
                         pcb.setTTL(((supervisoryStorage[index][8] - '0') * 1000) + ((supervisoryStorage[index][9] - '0') * 100) + ((supervisoryStorage[index][10] - '0') * 10) + ((supervisoryStorage[index][11] - '0')));
                         pcb.setTLL(((supervisoryStorage[index][12] - '0') * 1000) + ((supervisoryStorage[index][13] - '0') * 100) + ((supervisoryStorage[index][14] - '0') * 10) + ((supervisoryStorage[index][15] - '0')));
-                        pcb.Ptrack = emp_drum_ptr;
+                        while(used_frames_drum[pcb.PTR_drum = random.nextInt(50)] != 0){}
+                        used_frames_drum[pcb.PTR_drum] = 1;
+                        pcb.PTR_drum*=10;
                         pcb.Pcards = 0;
-                        pcb.Dtrack = emp_drum_ptr+10;
+                        pcb.Ptrack = pcb.PTR_drum;
                         System.out.println("Job id: " + pcb.getJobId());
                         System.out.println("TTL: " + pcb.getTTL());
                         System.out.println("TLL: " + pcb.getTLL());
@@ -467,8 +475,9 @@ class OS3{
                     }
                     else if (supervisoryStorage[index][0] == '$' && supervisoryStorage[index][1] == 'D' && supervisoryStorage[index][2] == 'T' && supervisoryStorage[index][3] == 'A') {
                         System.out.println("DTA detected...");
-                        pcb.Dtrack = emp_drum_ptr;
+
                         pcb.Dcards = 0;
+                        pcb.Dtrack = pcb.PTR_drum + pcb.Pcards;
                         System.out.println("Dtrack " + pcb.Dtrack);
                         buffer_reset(index);
 
@@ -486,7 +495,6 @@ class OS3{
                             System.out.println("Program card incoming");
                             System.out.println(supervisoryStorage[index]);
                             pcb.Pcards++;
-                            emp_drum_ptr += 10;
                             bufferStat[index] = 'P';
                             ifb.add(index);
 
@@ -494,7 +502,6 @@ class OS3{
                             System.out.println("Data card incoming");
                             System.out.println(supervisoryStorage[index]);
                             pcb.Dcards++;
-                            emp_drum_ptr += 10;
                             bufferStat[index] = 'D';
                             ifb.add(index);
 
@@ -543,6 +550,7 @@ class OS3{
         switch (task[0]){
             case 'O':
                 if(ebq.isEmpty()){
+                    System.out.println("Output spooling halted because no empty buffer...");
                     return;
                 }
                 index = ebq.poll();
@@ -552,7 +560,7 @@ class OS3{
                     if (!ebq.isEmpty()) {
                         switch (job.terminate_stat) {
                             case 0:
-                                em = ("\nTerminated Sucessfully\n\n").toCharArray();
+                                em = ("\nTerminated Successfully\n\n").toCharArray();
                                 for (int i = 0; i < em.length; i++) {
                                     supervisoryStorage[index][i] = em[i];
                                 }
@@ -597,7 +605,7 @@ class OS3{
                         ofb.add(index);
 
                         //saving the state of the system then clearing the drum and resetting the cpu for the next task
-                        String jobDetails = "\n\nJobID: " + job.getJobId() + "\tTTL: " + job.getTTL() + "\tTLL: " + job.getTLL() + "\nTTC: " + job.TTC + "\tLLC: "+ job.LLC+"\n";
+                        String jobDetails = "\n\nJobID: " + job.getJobId() + "\tTTL: " + job.getTTL() + "\tTLL: " + job.getTLL() + "\nTTC: " + job.TTC + "\tLLC: "+ job.LLC+"\nPTR_drum: " + job.PTR_drum + "\tPTR_Ram: "+job.PTR_ram + "\nPtrack: " + job.Ptrack + "\tDtrack: " + job.Dtrack + "\tOtrack: "+job.Otrack;
                         save_state(jobDetails);
                         reset_cpu();
                     }
@@ -607,22 +615,21 @@ class OS3{
                 }
                 else {
                     if(!ebq.isEmpty()) {
-                    int Otrack = job.Otrack + 10 * job.loadedOcards;
-                    int limit = Otrack + 10;
-                    int buffer_ptr = 0;
-                    for (int i = Otrack; i < limit; i++) {
-                        for (int j = 0; j < 4; j++) {
-                            if (drum[i][j] == '@')
-                                continue;
-                            supervisoryStorage[index][buffer_ptr] = drum[i][j];
-                            buffer_ptr++;
+                        int Otrack = realAddress_drum(job.Otrack + job.loadedOcards);
+                        int limit = Otrack + 10;
+                        int buffer_ptr = 0;
+                        for (int i = Otrack; i < limit; i++) {
+                            for (int j = 0; j < 4; j++) {
+                                if (drum[i][j] == '@')
+                                    continue;
+                                supervisoryStorage[index][buffer_ptr] = drum[i][j];
+                                buffer_ptr++;
+                            }
+
+
                         }
-
-
-                    }
-
-                    ofb.add(index);
-                    job.loadedOcards++;
+                        ofb.add(index);
+                        job.loadedOcards++;
                 }
                 }
 
@@ -635,12 +642,14 @@ class OS3{
                 System.out.println("Input Spooling");
                 index = ifb.poll();
                 if(bufferStat[index] == 'P'){
-                    load_memory_instructions_drum(supervisoryStorage[index],pcb.Ptrack + 10*pcb.loadedPcards);
+                    int address = Allocate_drum(pcb);
+                    load_memory_instructions_drum(supervisoryStorage[index],address);
                     pcb.loadedPcards ++;
                 }
                 else if(bufferStat[index] == 'D'){
                     pcb.loadedPcards = 0;
-                    load_memory_data_Drum(supervisoryStorage[index],pcb.Dtrack + 10*pcb.loadedDcards);
+                    int address = Allocate_drum(pcb);
+                    load_memory_data_Drum(supervisoryStorage[index],address);
                     pcb.loadedDcards++;
                 }
                 buffer_reset(index);
@@ -650,30 +659,33 @@ class OS3{
                 break;
             case 'L':
                 System.out.println("Loading for job: " + job.getJobId());
-                if(job.PTR_stor==null){
-                    job.PTR_stor = random.nextInt(30);
-                    PTR = job.PTR_stor;
-                    used_frames[PTR] = 1;
+                if(job.PTR_ram==null){
+                    while(used_frames_ram[job.PTR_ram = random.nextInt(30)] != 0){}
+                    PTR = job.PTR_ram;
+                    used_frames_ram[PTR] = 1;
                 }
 
-                int page = Allocate();
-                int track = job.Ptrack + (job.loadedPcards *10);
+                int page = Allocate_ram();
+                int track = realAddress_drum(job.Ptrack + job.loadedPcards);
                 int limit = track+10;
                 for(int i = track;i<limit;i++){
                     for(int j = 0;j<4;j++){
                         memory[page + i - track][j] = drum[i][j];
                     }
-                }
 
+                }
+//                String jobDetails = "\n\nJobID: " + job.getJobId() + "\tTTL: " + job.getTTL() + "\tTLL: " + job.getTLL() + "\nTTC: " + job.TTC + "\tLLC: "+ job.LLC+"\nPTR_drum: " + job.PTR_drum + "\tPTR_Ram: "+job.PTR_ram + "\nPtrack: " + job.Ptrack + "\tDtrack: " + job.Dtrack + "\tOtrack: "+job.Otrack;
+//                save_state(jobDetails);
                 job.loadedPcards++;
                 if(job.loadedPcards == job.Pcards){
                     RQ.add(LQ.poll());
+
+                    pcb.loadedDcards = 0; //for GD purposes
                 }
-                pcb.loadedDcards = 0; //for GD purposes
                 task[0] = '@';task[1] = '@';
                 break;
             case 'R':
-                System.out.println("GD started");
+                System.out.println("GD started channel 3");
                 if(job.loadedDcards == job.Dcards){
                     job.terminate_stat = 1;
                     TQ.add(IoQ.poll());
@@ -684,10 +696,10 @@ class OS3{
 
                 limit = ram_add+10;
                 System.out.println("Ram add: " + ram_add);
-
+                int drum_add = realAddress_drum(job.PTR_drum +job.Pcards+ job.loadedDcards);
                 for(int i = ram_add;i < limit;i++){
                     for(int j = 0;j<4;j++){
-                        memory[i][j] = drum[job.Dtrack+ (job.loadedDcards * 10)+ (i - ram_add)][j];
+                        memory[i][j] = drum[drum_add+ (i - ram_add)][j];
                     }
                 }
                 job.loadedDcards++;
@@ -697,14 +709,15 @@ class OS3{
             case 'W':
                 System.out.println("PD in channel 3");
 
-
+                drum_add = Allocate_drum(job);
                 ram_add = realAddress((IR[2]-'0') *10);
                 limit = ram_add+10;
                 for(int i = ram_add;i < limit;i++){
                     for(int j = 0;j<4;j++){
-                        drum[job.Otrack+ (job.Olines * 10)+ (i - ram_add)][j] = memory[i][j];
+                        drum[drum_add+ (i - ram_add)][j] = memory[i][j];
                     }
                 }
+
                 job.Olines++;
                 job.LLC++;
                 if(job.LLC>job.getTLL()){
@@ -750,9 +763,9 @@ class OS3{
             }
             else{
                 job = IoQ.peek();
-                if(job.Otrack == 0){
-                    job.Otrack = emp_drum_ptr;
-                    emp_drum_ptr+=10;
+                if(job.Otrack == -1){
+                    job.Otrack = job.PTR_drum + job.Pcards + job.Dcards;
+                    job.Olines = 0;
                 }
 
                 task[0] = 'W';
@@ -986,11 +999,32 @@ class OS3{
         }
 
     }
-
-    private int Allocate(){
+    private int Allocate_drum(PCB job){
         int temp2;
-        while(used_frames[temp2 = random.nextInt(30)] != 0){}
-        used_frames[temp2] = 1;
+        while(used_frames_drum[temp2 = random.nextInt(50)] != 0){}
+        used_frames_drum[temp2] = 1;
+        temp2 = temp2 *10;
+        int ret = temp2;
+        int i = job.PTR_drum;
+
+        while(drum[i][0]!='@'){i++;}
+
+
+        drum[i][0] = '0';
+        drum[i][3] = (char) (temp2 % 10 + '0');
+        temp2 /= 10;
+        drum[i][2] = (char) (temp2 % 10 + '0');
+        temp2 /= 10;
+        drum[i][1] = (char) (temp2 % 10 + '0');
+        return ret;
+
+
+    }
+
+    private int Allocate_ram(){
+        int temp2;
+        while(used_frames_ram[temp2 = random.nextInt(30)] != 0){}
+        used_frames_ram[temp2] = 1;
         temp2 = temp2 *10;
         int ret = temp2;
         int i = PTR*10;
@@ -1012,6 +1046,12 @@ class OS3{
 
     }
 
+
+
+    private int realAddress_drum(int VA){       //takes PTR + whatever, returns the int address
+        int ra = drum[VA][3] - '0' + (drum[VA][2]-'0') *10 + (drum[VA][1]-'0') *100;
+        return ra;
+    }
 
     private int realAddress(int VA){
         if(IR[2]!='@'){
@@ -1102,7 +1142,7 @@ class OS3{
 
         System.out.println("Used frames are: ");
         for(int i = 0;i<30;i++){
-            System.out.print(used_frames[i] );
+            System.out.print(used_frames_ram[i] );
         }
         System.out.println("\nMain memory");
         for(int i = 0; i< 300;i++){
