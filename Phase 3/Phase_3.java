@@ -31,7 +31,7 @@ class OS3{
     char [][] memory;       //RAM
     char [][] drum;     //secondary storage
     int mem_ptr;
-    int emp_drum_ptr; //points at the next empty drum block;
+
     //CPU
     char [] IR;
     char [] R;
@@ -57,9 +57,9 @@ class OS3{
     int time;
     int TSC;
     //channels
-    boolean CH[];
-    int CHT[];
-    int CH_TOT[];
+    boolean[] CH;
+    int[] CHT;
+    int[] CH_TOT;
 
 
     //miscellaneous
@@ -73,7 +73,7 @@ class OS3{
 
 
 
-    class PCB{
+    static class PCB{
         private int TTL;
         private int TLL;
         private int jobId;
@@ -88,7 +88,7 @@ class OS3{
 
 
 
-        //miscellaneous
+        //miscellaneous variables which store extra information about a job
         int loadedPcards;
         int loadedDcards;
         int loadedOcards;
@@ -96,6 +96,9 @@ class OS3{
         Integer PTR_ram;
         Integer PTR_drum;
         int terminate_stat;
+        char [] R_state; //holds general purpose register information
+        boolean toggle_state;
+
 
 
         public PCB(){
@@ -107,6 +110,12 @@ class OS3{
             this.IC = 0;
             this.Otrack = -1;
             this.PTR_ram= null;
+            this.R_state = new char[4];
+            this.R_state[0] = '@';
+            this.R_state[1] = '@';
+            this.R_state[2] = '@';
+            this.R_state[3] = '@';
+            this.toggle_state = true;
         }
 
 
@@ -164,8 +173,19 @@ class OS3{
         value_allocator();
 
     }
+    private static java.io.File file;
+    private static BufferedReader reader;
+    static {
+        try {
+            file = new java.io.File("src/com/company/input3.txt");
+            reader = new BufferedReader(new FileReader(String.valueOf(file)));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+
     private void value_allocator() {
-        //value allocation
         for(int i = 0;i<4;i++){
             IR[i] = '@';
             R[i] = '@';
@@ -186,7 +206,6 @@ class OS3{
         IC = 0;
         toggle = false;
         mem_ptr = 0;
-        emp_drum_ptr = 0;
         SI = 0;
         EM = 0;
         TI = 0;
@@ -208,61 +227,6 @@ class OS3{
 
 
     }
-
-    private void reset_cpu(){
-
-        for(int i = 0;i<4;i++){
-            IR[i] = '@';
-            R[i] = '@';
-        }
-        for(int i = 0;i < 300; i++){
-
-            for(int j = 0; j< 4;j++){
-                memory[i][j] = '@';
-            }
-        }
-        IC = 0;
-        toggle = false;
-        SI = 0;
-        EM = 0;
-        TI = 0;
-        PI = 0;
-    }
-    private void save_state(String jobDetails){
-        String interrupts = "\nSI: "+SI+"\tPI: "+PI+"\tTI: "+TI+"\n";
-        String cpuDetails = "\nIC: "+IC+"\nIR: "+IR[0]+IR[1]+IR[2]+IR[3] + "\nR: "+R[0]+R[1]+R[2]+R[3] + "\nToggle: "+toggle+"\n";
-        try {
-            Files.write(Paths.get("src/com/company/state.txt"), (jobDetails + interrupts + cpuDetails + "\n\n\n").getBytes(), StandardOpenOption.APPEND);
-
-            Files.write(Paths.get("src/com/company/state.txt"), ("Drum\n\n").getBytes(), StandardOpenOption.APPEND);
-            StringBuffer sb = new StringBuffer();
-            for (int i = 0; i < 500; i++) {
-                sb.append(i+ ":");
-                for (int j = 0; j < 4; j++) {
-                    sb.append(drum[i][j]);
-                }
-                sb.append("\n");
-            }
-            Files.write(Paths.get("src/com/company/state.txt"), (sb.toString()).getBytes(), StandardOpenOption.APPEND);
-
-
-            Files.write(Paths.get("src/com/company/state.txt"), ("Main memory\n\n").getBytes(), StandardOpenOption.APPEND);
-            sb = new StringBuffer();
-            for (int i = 0; i < 300; i++) {
-                sb.append(i+ ":");
-                for (int j = 0; j < 4; j++) {
-                    sb.append(memory[i][j]);
-                }
-                sb.append("\n");
-            }
-            Files.write(Paths.get("src/com/company/state.txt"), (sb.toString()).getBytes(), StandardOpenOption.APPEND);
-
-        }catch (IOException e) {
-            e.printStackTrace();
-        }
-
-    }
-
 
 
     public void start(){
@@ -304,19 +268,29 @@ class OS3{
                 }
             }
             System.out.println();
-//            if(!TQ.isEmpty()){
-//                System.out.print("TQ: ");
-//                for(PCB job : TQ){
-//                    System.out.print(job.getJobId());
-//                }
-//            }
+            if(!TQ.isEmpty()){
+                System.out.print("TQ: ");
+                for(PCB job : TQ){
+                    System.out.print(job.getJobId());
+                }
+            }
 
             System.out.println();
             System.out.println("\ntime: "+time);
 
             System.out.println("SI: " + SI + " PI: " + PI + " TI: "+ TI);
 
+            System.out.println("Used drum frames:");
+            for(int i = 0;i<50;i++){
+                System.out.print(used_frames_drum[i]);
+            }
+            System.out.println();
 
+            System.out.println("Used ram frames:");
+            for(int i = 0;i<30;i++){
+                System.out.print(used_frames_ram[i]);
+            }
+            System.out.println();
 
             executeUserProgram();
             simulate();
@@ -516,6 +490,8 @@ class OS3{
             System.out.println("Error at file reading");
         }
     }
+
+
     public void IR2(){
         if(!ofb.isEmpty()){
             System.out.println("CHannel 2 triggered");
@@ -542,6 +518,7 @@ class OS3{
         }
 
     }
+
 
     public void IR3(){
         int index;
@@ -608,10 +585,12 @@ class OS3{
                         String jobDetails = "\n\nJobID: " + job.getJobId() + "\tTTL: " + job.getTTL() + "\tTLL: " + job.getTLL() + "\nTTC: " + job.TTC + "\tLLC: "+ job.LLC+"\nPTR_drum: " + job.PTR_drum + "\tPTR_Ram: "+job.PTR_ram + "\nPtrack: " + job.Ptrack + "\tDtrack: " + job.Dtrack + "\tOtrack: "+job.Otrack;
                         save_state(jobDetails);
                         reset_cpu();
-                    }
 
-                    TQ.poll();
-                    //TODO: Add clear drum here
+                        System.out.println("CPU reset");
+                    }
+                    clear_drum(TQ.peek());
+                    clear_ram(TQ.poll());
+
                 }
                 else {
                     if(!ebq.isEmpty()) {
@@ -661,8 +640,8 @@ class OS3{
                 System.out.println("Loading for job: " + job.getJobId());
                 if(job.PTR_ram==null){
                     while(used_frames_ram[job.PTR_ram = random.nextInt(30)] != 0){}
+                    used_frames_ram[job.PTR_ram] = 1;
                     PTR = job.PTR_ram;
-                    used_frames_ram[PTR] = 1;
                 }
 
                 int page = Allocate_ram();
@@ -674,8 +653,7 @@ class OS3{
                     }
 
                 }
-//                String jobDetails = "\n\nJobID: " + job.getJobId() + "\tTTL: " + job.getTTL() + "\tTLL: " + job.getTLL() + "\nTTC: " + job.TTC + "\tLLC: "+ job.LLC+"\nPTR_drum: " + job.PTR_drum + "\tPTR_Ram: "+job.PTR_ram + "\nPtrack: " + job.Ptrack + "\tDtrack: " + job.Dtrack + "\tOtrack: "+job.Otrack;
-//                save_state(jobDetails);
+
                 job.loadedPcards++;
                 if(job.loadedPcards == job.Pcards){
                     RQ.add(LQ.poll());
@@ -752,10 +730,7 @@ class OS3{
         else if(!IoQ.isEmpty()){
             if(IR[0] == 'G' && IR[1] == 'D') {
                 job = IoQ.peek();
-//                if(job.Dcards == job.loadedDcards){
-//                    job.terminate_stat = 3;
-//                    return;
-//                }
+
 
                 task[0] = 'R';
                 task[1] = 'D';
@@ -783,17 +758,17 @@ class OS3{
 
 
 
-
-
-
-
-
     public void executeUserProgram(){
         //loading IR
         if(RQ.isEmpty() || SI!=0 || PI!=0 || TI!=0)
             return;
         PCB job = RQ.peek();
+        System.out.println("Job in execution: "+job.getJobId());
+        System.out.println("JOB PTR" + job.PTR_ram);
         IC = job.IC;
+        PTR = job.PTR_ram;
+        R = job.R_state;
+        toggle = job.toggle_state;
         int ra = realAddress(IC);
         while (IC<99 && memory[ra][0] != '@' && SI==0 && PI==0 && TI==0) {
             System.out.println("IC is " + IC);
@@ -814,6 +789,7 @@ class OS3{
                             for(int i = 0;i<4;i++){
                                 R[i] = memory[ra2][i];
                             }
+                            job.R_state = R;
                         }
                         job.TTC++;
                     }
@@ -901,7 +877,6 @@ class OS3{
                     if (IR[1] == 'D') {
                         realAddress((IR[2]-'0') *10);
                         if(PI == 2 || PI == 3){
-//                            MOS();
                             return;
                         }
                         SI = 2;
@@ -935,17 +910,6 @@ class OS3{
 
 
 
-    private static java.io.File file;
-    private static BufferedReader reader;
-    static {
-        try {
-            file = new java.io.File("src/com/company/input3.txt");
-            reader = new BufferedReader(new FileReader(String.valueOf(file)));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-    }
-
 
 
     public void load_memory_instructions_drum(char[] buffer, int address){
@@ -964,8 +928,9 @@ class OS3{
             }
             address++;
         }
-//        printer();
     }
+
+
     public void load_memory_data_Drum(char[] buffer, int location){
         mem_ptr = location;
         if(mem_ptr>=500){
@@ -993,12 +958,69 @@ class OS3{
             }
         }
     }
+
+
     public void buffer_reset(int buff_no){
         for(int i = 0;i<40;i++){
             supervisoryStorage[buff_no][i] = '@';
         }
 
     }
+
+    public void clear_drum(PCB job){        //takes job as input, clears the contents present in drum of that job
+        int ptr = job.PTR_drum;
+        int limit = ptr+10;
+        for(int i = ptr;i<limit;i++){
+            if(drum[i][0] == '@')
+                break;
+            int page = realAddress_drum(i);
+            int pagelength = page+10;
+            for(int j = page;j<pagelength;j++){
+                for(int k = 0;k<4;k++){
+                    drum[j][k] = '@';
+                }
+            }
+            used_frames_drum[page/10] = 0;
+            drum[i][0] = '@';
+            drum[i][1] = '@';
+            drum[i][2] = '@';
+            drum[i][3] = '@';
+        }
+        used_frames_drum[job.PTR_drum/10] = 0;
+
+        System.out.println("Tracks released for job "+ job.getJobId());
+
+    }
+
+    public void clear_ram(PCB job){        //takes job as input, clears the contents present in ram of that job
+        int ptr = job.PTR_ram * 10;
+        int limit = ptr+10;
+
+        for(int i = ptr;i<limit;i++){
+            if(memory[i][0] == '@')
+                break;
+            int page;
+            page = (memory[i][1]-'0') * 100 + (memory[i][2] - '0')*10 + (memory[i][3] - '0');
+
+
+            int pagelength = page+10;
+            for(int j = page;j<pagelength;j++){
+                for(int k = 0;k<4;k++){
+                    memory[j][k] = '@';
+                }
+            }
+            used_frames_ram[page/10] = 0;
+            memory[i][0] = '@';
+            memory[i][1] = '@';
+            memory[i][2] = '@';
+            memory[i][3] = '@';
+        }
+        used_frames_ram[job.PTR_ram/10] = 0;
+
+
+    }
+
+
     private int Allocate_drum(PCB job){
         int temp2;
         while(used_frames_drum[temp2 = random.nextInt(50)] != 0){}
@@ -1020,6 +1042,7 @@ class OS3{
 
 
     }
+
 
     private int Allocate_ram(){
         int temp2;
@@ -1077,6 +1100,7 @@ class OS3{
 
         return ra;
     }
+
     private int getPTE(int VA){
         return (PTR*10) + VA/10;
     }
@@ -1120,6 +1144,53 @@ class OS3{
             IOI = 7;
         }
         time++;
+    }
+    private void reset_cpu(){
+
+        for(int i = 0;i<4;i++){
+            IR[i] = '@';
+            R[i] = '@';
+        }
+        IC = 0;
+        toggle = false;
+        SI = 0;
+        EM = 0;
+        TI = 0;
+        PI = 0;
+    }
+    private void save_state(String jobDetails){
+        String interrupts = "\nSI: "+SI+"\tPI: "+PI+"\tTI: "+TI+"\n";
+        String cpuDetails = "\nIC: "+IC+"\nIR: "+IR[0]+IR[1]+IR[2]+IR[3] + "\nR: "+R[0]+R[1]+R[2]+R[3] + "\nToggle: "+toggle+"\n";
+        try {
+            Files.write(Paths.get("src/com/company/state.txt"), (jobDetails + interrupts + cpuDetails + "\n\n\n").getBytes(), StandardOpenOption.APPEND);
+
+            Files.write(Paths.get("src/com/company/state.txt"), ("Drum\n\n").getBytes(), StandardOpenOption.APPEND);
+            StringBuffer sb = new StringBuffer();
+            for (int i = 0; i < 500; i++) {
+                sb.append(i+ ":");
+                for (int j = 0; j < 4; j++) {
+                    sb.append(drum[i][j]);
+                }
+                sb.append("\n");
+            }
+            Files.write(Paths.get("src/com/company/state.txt"), (sb.toString()).getBytes(), StandardOpenOption.APPEND);
+
+
+            Files.write(Paths.get("src/com/company/state.txt"), ("Main memory\n\n").getBytes(), StandardOpenOption.APPEND);
+            sb = new StringBuffer();
+            for (int i = 0; i < 300; i++) {
+                sb.append(i+ ":");
+                for (int j = 0; j < 4; j++) {
+                    sb.append(memory[i][j]);
+                }
+                sb.append("\n");
+            }
+            Files.write(Paths.get("src/com/company/state.txt"), (sb.toString()).getBytes(), StandardOpenOption.APPEND);
+
+        }catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
 
