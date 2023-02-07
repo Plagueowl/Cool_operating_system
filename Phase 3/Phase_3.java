@@ -92,10 +92,13 @@ class OS3{
         int loadedPcards;
         int loadedDcards;
         int loadedOcards;
-        int IC;
+
         Integer PTR_ram;
         Integer PTR_drum;
         int terminate_stat;
+
+        //CPU state
+        int IC;
         char [] R_state; //holds general purpose register information
         boolean toggle_state;
 
@@ -657,13 +660,14 @@ class OS3{
                 job.loadedPcards++;
                 if(job.loadedPcards == job.Pcards){
                     RQ.add(LQ.poll());
-
-                    pcb.loadedDcards = 0; //for GD purposes
+                    RQ.peek().loadedDcards = 0; //for GD purposes
                 }
                 task[0] = '@';task[1] = '@';
                 break;
             case 'R':
                 System.out.println("GD started channel 3");
+                System.out.println(job.loadedDcards);
+                System.out.println(job.Dcards);
                 if(job.loadedDcards == job.Dcards){
                     job.terminate_stat = 1;
                     TQ.add(IoQ.poll());
@@ -765,10 +769,8 @@ class OS3{
         PCB job = RQ.peek();
         System.out.println("Job in execution: "+job.getJobId());
         System.out.println("JOB PTR" + job.PTR_ram);
-        IC = job.IC;
-        PTR = job.PTR_ram;
-        R = job.R_state;
-        toggle = job.toggle_state;
+        restoreCPU(job);
+
         int ra = realAddress(IC);
         while (IC<99 && memory[ra][0] != '@' && SI==0 && PI==0 && TI==0) {
             System.out.println("IC is " + IC);
@@ -868,6 +870,7 @@ class OS3{
                             MOS();
                         }
                         job.TTC++;
+                        captureCPU(job);
                         return;
                     }
                     else
@@ -881,6 +884,7 @@ class OS3{
                         }
                         SI = 2;
                         job.TTC++;
+                        captureCPU(job);
                         return;
                     }
                     else
@@ -909,8 +913,17 @@ class OS3{
     }
 
 
+    public void captureCPU(PCB job){
+        System.arraycopy(R, 0, job.R_state, 0, 4);
+        job.toggle_state = toggle;
+        job.IC = IC;
 
-
+    }
+    public void restoreCPU(PCB job){
+        System.arraycopy(job.R_state,0,R,0,4);
+        toggle = job.toggle_state;
+        IC = job.IC;
+    }
 
     public void load_memory_instructions_drum(char[] buffer, int address){
         int buffer_ptr2 = 0;
